@@ -132,7 +132,8 @@ export class UniverSheet extends UniverSheetBase {
                 cellType = CellValueType.STRING;
 
             // Remove _xlfn. prefix and @ symbol (Excel 365 implicit intersection operator)
-            const f = v.f?.replace(/=_xlfn./g, '=')?.replace(/@(\w+)/g, '$1');
+            // Updated regex to handle absolute references like @$C$19
+            const f = v.f?.replace(/=_xlfn./g, '=')?.replace(/@([$]?[A-Za-z]+[$]?[0-9]+)/g, '$1');
             const cell: ICellData = {
                 // custom: v., // User stored custom fields
                 f,

@@ -94,6 +94,25 @@ function setCell(worksheet: Worksheet, sheet: any, styles: any, snapshot: any, w
                 sheets
             }, workbook );
             
+            // Post-process: Remove @ symbols that ExcelJS adds to named ranges
+            // This happens after ExcelJS processes the formula
+            if (target.value && typeof target.value === 'object' && 'formula' in target.value) {
+                // Remove @ from named ranges but keep it for structured references
+                // Named ranges: @circ -> circ, @myRange -> myRange
+                // But keep: @[Column1] (structured references)
+                const cleanedFormula = target.value.formula.replace(/@([A-Za-z_]\w*)/g, (match, name) => {
+                    // If it starts with [ it's a structured reference, keep the @
+                    if (match.includes('[')) return match;
+                    // Otherwise it's a named range, remove the @
+                    return name;
+                });
+                // Create new value object with cleaned formula
+                target.value = {
+                    formula: cleanedFormula,
+                    result: target.value.result
+                };
+            }
+            
             let originStyle = cell.s;
             if (typeof cell.s === 'string') {
                 originStyle = styles[cell.s]
@@ -173,14 +192,10 @@ function handleValue(cell: any, cellSource: any, workbook: Workbook) {
             }
         }
     } else if (cell.si) {
-        // Clean formula: ensure no @ symbols are added to named ranges
-        const cleanFormula = cell.si?.replace(/@(\w+)/g, '$1');
-        value = { formula: cleanFormula, result: cell.v }
+        value = { formula: cell.si, result: cell.v }
     } else if (cell.f) {
         // Handle regular formulas (not just shared formulas)
-        // Clean formula: ensure no @ symbols are added to named ranges
-        const cleanFormula = cell.f?.replace(/@(\w+)/g, '$1');
-        value = { formula: cleanFormula, result: cell.v }
+        value = { formula: cell.f, result: cell.v }
     } else {
         value = cell.v
     }
