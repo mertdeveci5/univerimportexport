@@ -97,15 +97,22 @@ function setCell(worksheet: Worksheet, sheet: any, styles: any, snapshot: any, w
             // Post-process: Remove @ symbols that ExcelJS adds to named ranges
             // This happens after ExcelJS processes the formula
             if (target.value && typeof target.value === 'object' && 'formula' in target.value) {
+                const originalFormula = target.value.formula;
                 // Remove @ from named ranges but keep it for structured references
                 // Named ranges: @circ -> circ, @myRange -> myRange
                 // But keep: @[Column1] (structured references)
-                const cleanedFormula = target.value.formula.replace(/@([A-Za-z_]\w*)/g, (match, name) => {
+                const cleanedFormula = originalFormula.replace(/@([A-Za-z_]\w*)/g, (match, name) => {
                     // If it starts with [ it's a structured reference, keep the @
                     if (match.includes('[')) return match;
                     // Otherwise it's a named range, remove the @
                     return name;
                 });
+                
+                // Debug log
+                if (originalFormula !== cleanedFormula) {
+                    console.log('Cleaned formula:', originalFormula, '->', cleanedFormula);
+                }
+                
                 // Create new value object with cleaned formula
                 target.value = {
                     formula: cleanedFormula,
