@@ -141,40 +141,42 @@ export class LuckyFile extends LuckyFileBase {
             let sheetFile = this.getSheetFileBysheetId(rid);
             let hide = sheet.attributeList.state === "hidden" ? 1 : 0;
 
-            let drawing = this.readXml.getElementsByTagName("worksheet/drawing", sheetFile), drawingFile, drawingRelsFile;
-            if(drawing!=null && drawing.length>0){
-                let attrList = drawing[0].attributeList;
-                let rid = getXmlAttibute(attrList, "r:id", null);
-                if(rid!=null){
-                    drawingFile = this.getDrawingFile(rid, sheetFile);
-                    drawingRelsFile = this.getDrawingRelsFile(drawingFile);
+            let drawing = null, drawingFile, drawingRelsFile;
+            if(sheetFile) {
+                drawing = this.readXml.getElementsByTagName("worksheet/drawing", sheetFile);
+                if(drawing!=null && drawing.length>0){
+                    let attrList = drawing[0].attributeList;
+                    let rid = getXmlAttibute(attrList, "r:id", null);
+                    if(rid!=null){
+                        drawingFile = this.getDrawingFile(rid, sheetFile);
+                        drawingRelsFile = this.getDrawingRelsFile(drawingFile);
+                    }
                 }
             }
 
-            if(sheetFile!=null){
-                let sheet = new LuckySheet(sheetName, sheetId, order, isInitialCell,
-                    {
-                        sheetFile:sheetFile,
-                        readXml:this.readXml,
-                        sheetList:sheetList,
-                        styles:this.styles,
-                        sharedStrings:this.sharedStrings,
-                        calcChain:this.calcChain,
-                        imageList:this.imageList,
-                        drawingFile:drawingFile,
-                        drawingRelsFile: drawingRelsFile,
-                        hide: hide,
-                        cellImages: this.cellImages
-                    }
-                )
-                this.columnWidthSet = [];
-                this.rowHeightSet = [];
+            // Always create a sheet, even if sheetFile is null (empty sheet)
+            let luckySheet = new LuckySheet(sheetName, sheetId, order, isInitialCell,
+                {
+                    sheetFile:sheetFile,
+                    readXml:this.readXml,
+                    sheetList:sheetList,
+                    styles:this.styles,
+                    sharedStrings:this.sharedStrings,
+                    calcChain:this.calcChain,
+                    imageList:this.imageList,
+                    drawingFile:drawingFile,
+                    drawingRelsFile: drawingRelsFile,
+                    hide: hide,
+                    cellImages: this.cellImages
+                }
+            )
+            this.columnWidthSet = [];
+            this.rowHeightSet = [];
 
-                this.imagePositionCaculation(sheet);
+            this.imagePositionCaculation(luckySheet);
 
-                this.sheets.push(sheet);
-                order++;
-            }
+            this.sheets.push(luckySheet);
+            order++;
         }
     }
 

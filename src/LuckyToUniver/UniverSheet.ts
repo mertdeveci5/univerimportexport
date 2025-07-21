@@ -132,8 +132,18 @@ export class UniverSheet extends UniverSheetBase {
                 cellType = CellValueType.STRING;
 
             // Remove _xlfn. prefix and @ symbol (Excel 365 implicit intersection operator)
-            // Updated regex to handle absolute references like @$C$19
-            const f = v.f?.replace(/=_xlfn./g, '=')?.replace(/@([$]?[A-Za-z]+[$]?[0-9]+)/g, '$1');
+            // Step 1: Remove _xlfn. prefix
+            let f = v.f?.replace(/=_xlfn./g, '=');
+            
+            // Step 2: Remove @ from Excel 365 dynamic array functions and cell references
+            if (f) {
+                // Remove @ before function names like @TRANSPOSE
+                f = f.replace(/@(TRANSPOSE|SORT|SORTBY|FILTER|UNIQUE|SEQUENCE|RANDARRAY|ANCHORARRAY)\(/gi, '$1(');
+                
+                // Remove @ before cell/range references (including inside parentheses)
+                // This handles @$N$43:$N$45, @A1, @$A$1:$B$2, etc.
+                f = f.replace(/@(\$?[A-Za-z]+\$?[0-9]+(?::\$?[A-Za-z]+\$?[0-9]+)?)/g, '$1');
+            }
             const cell: ICellData = {
                 // custom: v., // User stored custom fields
                 f,

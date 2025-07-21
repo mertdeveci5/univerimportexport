@@ -98,19 +98,26 @@ function setCell(worksheet: Worksheet, sheet: any, styles: any, snapshot: any, w
             // This happens after ExcelJS processes the formula
             if (target.value && typeof target.value === 'object' && 'formula' in target.value) {
                 const originalFormula = target.value.formula;
-                // Remove @ from named ranges but keep it for structured references
-                // Named ranges: @circ -> circ, @myRange -> myRange
-                // But keep: @[Column1] (structured references)
-                const cleanedFormula = originalFormula.replace(/@([A-Za-z_]\w*)/g, (match, name) => {
-                    // If it starts with [ it's a structured reference, keep the @
-                    if (match.includes('[')) return match;
-                    // Otherwise it's a named range, remove the @
-                    return name;
-                });
+                
+                // Only remove @ from named ranges (not cell references or functions)
+                // This regex matches @ followed by a valid identifier that is NOT:
+                // - A cell reference (like A1, $A$1)
+                // - Part of a structured reference (like @[Column])
+                const cleanedFormula = originalFormula.replace(
+                    /@([A-Za-z_][A-Za-z0-9_]*)\b(?![\[\(:])/g,
+                    (match, name) => {
+                        // Check if this looks like a cell reference pattern
+                        if (/^[A-Z]+[0-9]+$/i.test(name)) {
+                            return match; // Keep @ for cell references (shouldn't happen)
+                        }
+                        // Otherwise it's a named range, remove @
+                        return name;
+                    }
+                );
                 
                 // Debug log
                 if (originalFormula !== cleanedFormula) {
-                    console.log('Cleaned formula:', originalFormula, '->', cleanedFormula);
+                    console.log('Cleaned formula on export:', originalFormula, '->', cleanedFormula);
                 }
                 
                 // Create new value object with cleaned formula
