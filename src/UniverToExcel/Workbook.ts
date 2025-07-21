@@ -23,9 +23,15 @@ export class WorkBook extends Workbook {
     }
 
     private setDefineNames(resources: any[]) {
-        const definedNames = jsonParse(resources.find(d => d.name === 'SHEET_DEFINED_NAME_PLUGIN')?.data);
+        const definedNamesResource = resources.find(d => d.name === 'SHEET_DEFINED_NAME_PLUGIN');
+        console.log('Defined names resource:', definedNamesResource);
+        
+        const definedNames = jsonParse(definedNamesResource?.data);
+        console.log('Parsed defined names:', definedNames);
+        
         for (const key in definedNames) {
             const element = definedNames[key]
+            console.log('Adding defined name:', element.name, '=', element.formulaOrRefString);
             this.definedNames.add(element.formulaOrRefString, element.name);
         }
     }
