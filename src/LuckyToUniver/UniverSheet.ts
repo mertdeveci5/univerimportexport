@@ -131,7 +131,8 @@ export class UniverSheet extends UniverSheetBase {
             if (this.hyperLink.findIndex((d) => d.column === row.c && d.row === row.r) > -1)
                 cellType = CellValueType.STRING;
 
-            const f = v.f?.replace(/=_xlfn./g, '=');
+            // Remove _xlfn. prefix and @ symbol (Excel 365 implicit intersection operator)
+            const f = v.f?.replace(/=_xlfn./g, '=')?.replace(/@(\w+)/g, '$1');
             const cell: ICellData = {
                 // custom: v., // User stored custom fields
                 f,

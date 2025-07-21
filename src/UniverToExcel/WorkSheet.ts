@@ -173,7 +173,14 @@ function handleValue(cell: any, cellSource: any, workbook: Workbook) {
             }
         }
     } else if (cell.si) {
-        value = { formula: cell.si, result: cell.v }
+        // Clean formula: ensure no @ symbols are added to named ranges
+        const cleanFormula = cell.si?.replace(/@(\w+)/g, '$1');
+        value = { formula: cleanFormula, result: cell.v }
+    } else if (cell.f) {
+        // Handle regular formulas (not just shared formulas)
+        // Clean formula: ensure no @ symbols are added to named ranges
+        const cleanFormula = cell.f?.replace(/@(\w+)/g, '$1');
+        value = { formula: cleanFormula, result: cell.v }
     } else {
         value = cell.v
     }
