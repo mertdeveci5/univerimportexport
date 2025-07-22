@@ -132,6 +132,9 @@ export class LuckyFile extends LuckyFileBase {
             sheetList[sheet.attributeList.name] = sheet.attributeList["sheetId"];
         }
         this.sheets = [];
+        
+        // DEBUG: Empty sheets
+        console.log('[DEBUG] Total sheets found in workbook.xml:', Object.keys(sheets).length);
         let order = 0;
         for(let key in sheets){
             let sheet = sheets[key];
@@ -140,6 +143,9 @@ export class LuckyFile extends LuckyFileBase {
             let rid = sheet.attributeList["r:id"];
             let sheetFile = this.getSheetFileBysheetId(rid);
             let hide = sheet.attributeList.state === "hidden" ? 1 : 0;
+            
+            // DEBUG: Empty sheets
+            console.log(`[DEBUG] Processing sheet "${sheetName}" (id: ${sheetId}, rid: ${rid}), has sheetFile: ${!!sheetFile}`);
 
             let drawing = null, drawingFile, drawingRelsFile;
             if(sheetFile) {
@@ -176,8 +182,14 @@ export class LuckyFile extends LuckyFileBase {
             this.imagePositionCaculation(luckySheet);
 
             this.sheets.push(luckySheet);
+            
+            // DEBUG: Empty sheets
+            console.log(`[DEBUG] Sheet "${sheetName}" added to sheets array`);
             order++;
         }
+        
+        // DEBUG: Empty sheets final count
+        console.log('[DEBUG] Final sheets count after processing:', this.sheets.length);
     }
 
     private columnWidthSet:number[] = [];

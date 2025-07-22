@@ -61,7 +61,7 @@ export class UniverSheet extends UniverSheetBase {
                 this.rowCount = this.rowCount > rowCount ? this.rowCount : rowCount + 1;
                 this.columnCount = this.columnCount > colCount ? this.columnCount : colCount + 1;
             }
-            console.log(this.rowCount, this.columnCount)
+            // console.log(this.rowCount, this.columnCount)
             this.handleRowAndColumnData(config);
             if (sheetData.freezen) this.handleFreeze(sheetData.freezen);
         }

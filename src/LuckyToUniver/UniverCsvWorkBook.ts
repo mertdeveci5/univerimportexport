@@ -22,7 +22,7 @@ export class UniverCsvWorkBook implements IWorkbookData {
     sheets!: { [sheetId: string]: Partial<IWorksheetData> };
     resources?: IResources | undefined;
     constructor(data: string[][]) {
-        console.log(data);
+        // console.log(data);
         const cellData: IObjectMatrixPrimitiveType<ICellData> = {};
 
         let rowCount = 0,

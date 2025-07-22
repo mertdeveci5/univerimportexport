@@ -42,6 +42,11 @@ export class UniverWorkBook implements IWorkbookData {
         const workSheets: Sheets = {},
             order: string[] = [],
             sheetsObj: LuckySheetObj = {};
+        
+        // DEBUG: Empty sheets
+        console.log('[DEBUG] UniverWorkBook - Input sheets count:', sheets.length);
+        console.log('[DEBUG] UniverWorkBook - Sheet names:', sheets.map(s => s.name));
+        
         sheets
             .sort((a, b) => Number(a.order) - Number(b.order))
             .forEach((d) => {
@@ -51,7 +56,9 @@ export class UniverWorkBook implements IWorkbookData {
                 order.push(sheet.id);
             });
 
-        // console.log(workSheets,sheets)
+        // DEBUG: Empty sheets
+        console.log('[DEBUG] UniverWorkBook - Output workSheets count:', Object.keys(workSheets).length);
+        console.log('[DEBUG] UniverWorkBook - Sheet order:', order);
         this.handleHyperLinks(workSheets);
         this.handleImage(workSheets, sheets);
         this.handleChart(workSheets, sheets);

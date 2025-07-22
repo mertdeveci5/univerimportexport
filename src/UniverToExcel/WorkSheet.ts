@@ -117,7 +117,7 @@ function setCell(worksheet: Worksheet, sheet: any, styles: any, snapshot: any, w
                 
                 // Debug log
                 if (originalFormula !== cleanedFormula) {
-                    console.log('Cleaned formula on export:', originalFormula, '->', cleanedFormula);
+                    // console.log('Cleaned formula on export:', originalFormula, '->', cleanedFormula);
                 }
                 
                 // Create new value object with cleaned formula

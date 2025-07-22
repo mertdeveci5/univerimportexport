@@ -79,11 +79,11 @@ export class LuckyExcel {
         let handleZip: HandleZip = new HandleZip(excelFile);
 
         handleZip.unzipFile(function (files: IuploadfileList) {
-            console.log('input------>', files);
+            // console.log('input------>', files);
             let luckyFile = new LuckyFile(files, excelFile.name);
             let luckysheetfile = luckyFile.Parse();
             let exportJson = JSON.parse(luckysheetfile);
-            console.log('output---->', exportJson, files)
+            // console.log('output---->', exportJson, files)
             if (callback != undefined) {
                 const univerData = new UniverWorkBook(exportJson)
                 callback(univerData.mode, luckysheetfile);
@@ -152,7 +152,7 @@ export class LuckyExcel {
         const { snapshot, fileName = `csv_${(new Date).getTime()}.csv`, getBuffer = false, success, error, sheetName } = params;
         try {
             const csv = new CSV(snapshot);
-            console.log(csv);
+            // console.log(csv);
 
             let contents: string | { [key: string]: string };
             if (sheetName) {
