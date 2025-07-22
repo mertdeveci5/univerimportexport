@@ -135,6 +135,7 @@ export class LuckyFile extends LuckyFileBase {
         
         // DEBUG: Empty sheets
         console.log('[DEBUG] Total sheets found in workbook.xml:', Object.keys(sheets).length);
+        console.log('[DEBUG] Sheet names found:', Object.keys(sheets).map(k => sheets[k].attributeList.name));
         let order = 0;
         for(let key in sheets){
             let sheet = sheets[key];
