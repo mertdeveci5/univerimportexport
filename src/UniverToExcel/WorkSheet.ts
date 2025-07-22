@@ -206,10 +206,22 @@ function handleValue(cell: any, cellSource: any, workbook: Workbook) {
             }
         }
     } else if (cell.si) {
-        value = { formula: cell.si, result: cell.v }
+        // Validate shared formula
+        if (typeof cell.si === 'string' && !cell.si.includes('#REF!') && !cell.si.includes('#NAME?')) {
+            value = { formula: cell.si, result: cell.v }
+        } else {
+            console.log('[DEBUG] Export - Skipping invalid shared formula:', cell.si);
+            value = cell.v || '';
+        }
     } else if (cell.f) {
         // Handle regular formulas (not just shared formulas)
-        value = { formula: cell.f, result: cell.v }
+        // Validate formula before adding
+        if (typeof cell.f === 'string' && !cell.f.includes('#REF!') && !cell.f.includes('#NAME?')) {
+            value = { formula: cell.f, result: cell.v }
+        } else {
+            console.log('[DEBUG] Export - Skipping invalid formula:', cell.f);
+            value = cell.v || '';
+        }
     } else {
         value = cell.v
     }

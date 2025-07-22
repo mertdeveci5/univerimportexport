@@ -23,16 +23,44 @@ export class WorkBook extends Workbook {
     }
 
     private setDefineNames(resources: any[]) {
+        if (!resources || !Array.isArray(resources)) {
+            return;
+        }
+        
         const definedNamesResource = resources.find(d => d.name === 'SHEET_DEFINED_NAME_PLUGIN');
-        // console.log('Defined names resource:', definedNamesResource);
+        if (!definedNamesResource) {
+            return;
+        }
         
         const definedNames = jsonParse(definedNamesResource?.data);
-        // console.log('Parsed defined names:', definedNames);
+        if (!definedNames || typeof definedNames !== 'object') {
+            return;
+        }
+        
+        // DEBUG: Excel export error
+        console.log('[DEBUG] Export - Processing defined names:', Object.keys(definedNames).length);
         
         for (const key in definedNames) {
-            const element = definedNames[key]
-            // console.log('Adding defined name:', element.name, '=', element.formulaOrRefString);
-            this.definedNames.add(element.formulaOrRefString, element.name);
+            const element = definedNames[key];
+            if (!element || !element.name || !element.formulaOrRefString) {
+                console.log('[DEBUG] Export - Skipping invalid defined name:', element);
+                continue;
+            }
+            
+            try {
+                // Validate the formula/reference string
+                const formula = element.formulaOrRefString;
+                
+                // Skip if it contains problematic patterns
+                if (formula.includes('#REF!') || formula.includes('#NAME?') || formula.includes('SHEET_DEFINED_NAME')) {
+                    console.log('[DEBUG] Export - Skipping problematic defined name:', element.name, formula);
+                    continue;
+                }
+                
+                this.definedNames.add(formula, element.name);
+            } catch (error) {
+                console.log('[DEBUG] Export - Error adding defined name:', element.name, error);
+            }
         }
     }
     // private setSheetProtection(snapshot: any) {

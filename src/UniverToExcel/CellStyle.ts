@@ -107,7 +107,6 @@ function alignmentConvert(style: any) {
 }
 
 function fillConvert(bg: string, isCondition = false) {
-    if (!bg) return null;
     if (!bg) return {
         type: 'pattern' as const,
         pattern: 'none' as const,
