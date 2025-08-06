@@ -209,6 +209,17 @@ export class ChartImageGroup {
         const strRef = this.readXml.getElementsByTagName('c:ser/c:tx/c:strRef/c:f', chart, false);
         const x = catRef, y = strRef[strRef.length - 1]
 
+        // Handle cases where chart references are missing
+        if (!x || !x.value || !y || !y.value) {
+            console.warn('[LuckyChart] Missing chart references, using default range');
+            return {
+                maxColumn: 1,
+                maxRow: 1,
+                minColumn: 0,
+                minRow: 0
+            }
+        }
+
         const xRange = getcellrange(x.value), yRange = getcellrange(y.value);
 
         const column = [...xRange.column, ...yRange.column];
