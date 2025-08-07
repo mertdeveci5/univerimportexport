@@ -16,13 +16,17 @@ class xmloperation {
             let tags = tag.split("|"), tagsRegTxt="";
             for(let i=0;i<tags.length;i++){
                 let t = tags[i];
-                tagsRegTxt += "|<"+ t +" [^>]+?[^/]>[\\s\\S]*?</"+ t +">|<"+ t +" [^>]+?/>|<"+ t +">[\\s\\S]*?</"+ t +">|<"+ t +"/>";
+                // Fixed regex to handle attributes with > characters in quoted values (like name="DCF>>>")
+                tagsRegTxt += "|<"+ t +"(?:\\s+(?:[^>\"']|\"[^\"]*\"|'[^']*')*)?(?:>[\\s\\S]*?</"+ t +">|/>)";
             }
             tagsRegTxt = tagsRegTxt.substr(1, tagsRegTxt.length);
             readTagReg = new RegExp(tagsRegTxt, "g");
         }
         else{
-            readTagReg = new RegExp("<"+ tag +" [^>]+?[^/]>[\\s\\S]*?</"+ tag +">|<"+ tag +" [^>]+?/>|<"+ tag +">[\\s\\S]*?</"+ tag +">|<"+ tag +"/>", "g");
+            // Fixed regex to properly handle attributes with > characters in quoted values
+            // This now correctly matches tags where attribute values contain >
+            // Example: <sheet name="DCF>>>" sheetId="5" r:id="rId5"/>
+            readTagReg = new RegExp("<"+ tag +"(?:\\s+(?:[^>\"']|\"[^\"]*\"|'[^']*')*)?(?:>[\\s\\S]*?</"+ tag +">|/>)", "g");
         }
         
         let ret = file.match(readTagReg);

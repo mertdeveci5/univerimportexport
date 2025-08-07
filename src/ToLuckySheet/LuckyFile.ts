@@ -134,27 +134,10 @@ export class LuckyFile extends LuckyFileBase {
             console.log('🔍 [LuckyFile] All sheet names from workbook.xml:', allSheetNames);
         }
         
-        // Check for orphaned sheet files (sheets that exist as files but aren't in workbook.xml)
-        // This happens with completely empty sheets in Excel
-        const allSheetFiles: string[] = [];
-        const sheetFilePattern = /xl\/worksheets\/sheet(\d+)\.xml/;
-        for (let fileName in this.files) {
-            if (sheetFilePattern.test(fileName)) {
-                allSheetFiles.push(fileName);
-            }
-        }
-        console.log('🔍 [LuckyFile] All sheet files in ZIP:', allSheetFiles);
-        
-        // Build a map of used sheet IDs and find missing ones
-        const usedSheetIds = new Set<string>();
-        const sheetsByRid: {[rid: string]: any} = {};
-        
         let sheetList:IattributeList = {};
         for(let key in sheets){
             let sheet = sheets[key];
             sheetList[sheet.attributeList.name] = sheet.attributeList["sheetId"];
-            usedSheetIds.add(sheet.attributeList["sheetId"]);
-            sheetsByRid[sheet.attributeList["r:id"]] = sheet;
             console.log(`🔍 [LuckyFile] Processing sheet from workbook.xml:`, {
                 name: sheet.attributeList.name,
                 sheetId: sheet.attributeList["sheetId"],
@@ -163,70 +146,17 @@ export class LuckyFile extends LuckyFileBase {
             });
         }
         
-        // Find orphaned sheet files and add them as empty sheets
-        const missingSheets: any[] = [];
-        const knownMissingSheets = [
-            { name: "Financial Model>>>", position: 1.5 }, // After "Cover" (position 0), before "Operational Assumptions" (position 1)
-            { name: "DCF>>>", position: 4.5 }, // After "Control" (position 3), before "DCF" (position 4)
-            { name: "LBO>>>", position: 6.5 }  // After "DCF Output" (position 5), before "LBO Control" (position 6)
-        ];
-        
-        // Add the known missing sheets
-        for (const missingSheet of knownMissingSheets) {
-            const newSheetId = Math.max(100, ...Array.from(usedSheetIds).map(id => parseInt(id))) + missingSheets.length + 1;
-            missingSheets.push({
-                attributeList: {
-                    name: missingSheet.name,
-                    sheetId: newSheetId.toString(),
-                    "r:id": `rId${900 + missingSheets.length}`, // Use high rId to avoid conflicts
-                    state: undefined
-                },
-                position: missingSheet.position
-            });
-            console.log(`🔍 [LuckyFile] Adding missing empty sheet:`, {
-                name: missingSheet.name,
-                sheetId: newSheetId,
-                position: missingSheet.position
-            });
-        }
-        
-        // Combine sheets from workbook.xml with missing sheets
-        const allSheetsArray: any[] = [];
-        for (let key in sheets) {
-            allSheetsArray.push({
-                sheet: sheets[key],
-                position: parseInt(key)
-            });
-        }
-        
-        // Add missing sheets at their correct positions
-        for (const missing of missingSheets) {
-            allSheetsArray.push({
-                sheet: missing,
-                position: missing.position
-            });
-        }
-        
-        // Sort by position
-        allSheetsArray.sort((a, b) => a.position - b.position);
-        
-        console.log('🔍 [LuckyFile] All sheets including missing ones:', 
-            allSheetsArray.map(item => item.sheet.attributeList.name));
-        
         this.sheets = [];
         let order = 0;
         
-        // Process all sheets including missing ones
-        for(let item of allSheetsArray){
-            let sheet = item.sheet;
+        // Process all sheets - the regex fix should now handle sheets with >>> correctly
+        for(let key in sheets){
+            let sheet = sheets[key];
             let sheetName = sheet.attributeList.name;
             let sheetId = sheet.attributeList["sheetId"];
             let rid = sheet.attributeList["r:id"];
             let sheetFile = this.getSheetFileBysheetId(rid);
             let hide = sheet.attributeList.state === "hidden" ? 1 : 0;
-            
-            // Update sheetList with all sheets including missing ones
-            sheetList[sheetName] = sheetId;
             
             console.log(`🔍 [LuckyFile] Looking for sheet file for "${sheetName}":`, {
                 rid: rid,

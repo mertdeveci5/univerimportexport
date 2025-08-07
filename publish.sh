@@ -38,11 +38,11 @@ git add -A
 COMMIT_MESSAGE="Release v${NEW_VERSION}
 
 Changes:
-- Added detection and recovery of missing empty sheets
-- Fixed Excel sheets with >>> characters being excluded from import
-- Hardcoded addition of known missing sheets (Financial Model>>>, DCF>>>, LBO>>>)
-- Sheets are now properly positioned even when not in workbook.xml
-- Preserved console.log statements for debugging by disabling terser drop_console
+- Fixed XML parsing regex bug that failed on sheet names containing > characters
+- Sheets with >>> in names (like 'DCF>>>') are now properly parsed
+- Removed hardcoded sheet addition - now works for ANY file with > in sheet names
+- The regex now properly handles quoted attribute values containing special characters
+- This is the PROPER fix that works for all Excel files, not just specific ones
 
 🤖 Generated with automated publish script"
 
