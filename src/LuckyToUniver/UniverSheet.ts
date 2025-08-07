@@ -30,6 +30,7 @@ export interface ArrayFormula {
     range: {startRow: number, endRow: number, startCol: number, endCol: number};
     masterRow: number;
     masterCol: number;
+    formulaId: string;
 }
 
 export interface UniverSheetMode extends UniverSheetBase {
@@ -147,19 +148,21 @@ export class UniverSheet extends UniverSheetBase {
             // Handle formulas - preserve formula and calculated value
             const f = v.f?.replace(/=_xlfn./g, '=');
             
-            // Check if this is an array formula
-            const isArrayFormula = v.ft === 'array' && v.ref;
-            let arrayFormulaRange = null;
-            if (isArrayFormula && v.ref && f) {
+            // Handle array formulas using Univer's shared formula system (si)
+            let formulaId = null;
+            if (v.ft === 'array' && v.ref && f) {
+                // Generate a unique ID for this array formula
+                formulaId = generateRandomId(6);
                 // Parse the array formula range (e.g., "A1:C3")
-                arrayFormulaRange = this.parseRange(v.ref);
+                const arrayFormulaRange = this.parseRange(v.ref);
                 if (arrayFormulaRange) {
                     // Store array formula information for later processing
                     this.arrayFormulas.push({
                         formula: f,
                         range: arrayFormulaRange,
                         masterRow: row.r,
-                        masterCol: row.c
+                        masterCol: row.c,
+                        formulaId: formulaId
                     });
                 }
             }
@@ -169,7 +172,7 @@ export class UniverSheet extends UniverSheetBase {
                 f,
                 // p: , // The unique key, a random string, is used for the plug-in to associate the cell. When the cell information changes, the plug-in does not need to change the data, reducing the pressure on the back-end interface id?: string.
                 s: handleStyle(row, borderConf),
-                // si: Handle shared formula ID if available from other sources
+                si: formulaId, // Set formula ID for array formulas
                 t: cellType,
                 v: val, // Always preserve the calculated value
             };
@@ -534,32 +537,30 @@ export class UniverSheet extends UniverSheetBase {
     };
 
     /**
-     * Apply array formulas to all cells in their ranges
+     * Apply array formulas using Univer's shared formula system (si)
      */
     private applyArrayFormulas = (cellData: IObjectMatrixPrimitiveType<ICellData>) => {
         for (const arrayFormula of this.arrayFormulas) {
-            const { formula, range, masterRow, masterCol } = arrayFormula;
+            const { formula, range, masterRow, masterCol, formulaId } = arrayFormula;
             
-            // Apply the formula to all cells in the range
+            // Apply the shared formula ID to all cells in the range
             for (let r = range.startRow; r <= range.endRow; r++) {
                 for (let c = range.startCol; c <= range.endCol; c++) {
                     if (!cellData[r]) cellData[r] = {};
                     if (!cellData[r][c]) cellData[r][c] = {};
                     
-                    // For array formulas like TRANSPOSE, only the master cell should have the formula
-                    // Other cells should reference the master cell or be empty initially
                     if (r === masterRow && c === masterCol) {
+                        // Master cell: has both formula and shared ID
                         cellData[r][c].f = formula;
+                        cellData[r][c].si = formulaId;
                     } else {
-                        // For non-master cells in an array formula, they may contain calculated values
-                        // but should not have the formula duplicated
-                        // We'll let Univer handle the array formula expansion
-                        if (!cellData[r][c].v && !cellData[r][c].f) {
-                            // Mark as part of an array formula result
-                            cellData[r][c] = {
-                                v: null, // Will be calculated by Univer
-                                t: CellValueType.STRING
-                            };
+                        // Dependent cells: only have shared ID, Univer will calculate offset formula
+                        cellData[r][c].si = formulaId;
+                        // Remove any existing formula to let Univer handle it
+                        delete cellData[r][c].f;
+                        // Keep existing values if they exist, otherwise Univer will calculate
+                        if (!cellData[r][c].v) {
+                            cellData[r][c].v = null;
                         }
                     }
                 }
