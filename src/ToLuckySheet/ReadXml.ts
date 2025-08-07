@@ -145,23 +145,36 @@ export class Element extends xmloperation {
         super();
         this.elementString = str;
         this.setValue();
-        // Updated regex to properly handle quotes that may contain special characters like >
-        const readAttrReg = new RegExp('[a-zA-Z0-9_:]+="[^"]*"', "g");
-        let attrList = this.container.match(readAttrReg);
+        // Initialize attributeList early to prevent undefined errors
         this.attributeList = {};
-        if(attrList!=null){
-            for(let key in attrList){
-                let attrFull = attrList[key];
-                // let al= attrFull.split("=");
-                if(attrFull.length==0){
-                    continue;
+        
+        // Debug logging for problematic elements
+        if (!this.container && str && str.includes('>>>')) {
+            console.log('⚠️ [Element] Failed to parse element with >>>:', {
+                elementString: str.substring(0, 200),
+                hasContainer: !!this.container
+            });
+        }
+        
+        // Only parse attributes if container is defined
+        if (this.container) {
+            // Updated regex to properly handle quotes that may contain special characters like >
+            const readAttrReg = new RegExp('[a-zA-Z0-9_:]+="[^"]*"', "g");
+            let attrList = this.container.match(readAttrReg);
+            if(attrList!=null){
+                for(let key in attrList){
+                    let attrFull = attrList[key];
+                    // let al= attrFull.split("=");
+                    if(attrFull.length==0){
+                        continue;
+                    }
+                    let attrKey = attrFull.substr(0, attrFull.indexOf('='));
+                    let attrValue = attrFull.substr(attrFull.indexOf('=') + 1);
+                    if(attrKey==null || attrValue==null ||attrKey.length==0 || attrValue.length==0){
+                        continue;
+                    }
+                    this.attributeList[attrKey] = attrValue.substr(1, attrValue.length-2);
                 }
-                let attrKey = attrFull.substr(0, attrFull.indexOf('='));
-                let attrValue = attrFull.substr(attrFull.indexOf('=') + 1);
-                if(attrKey==null || attrValue==null ||attrKey.length==0 || attrValue.length==0){
-                    continue;
-                }
-                this.attributeList[attrKey] = attrValue.substr(1, attrValue.length-2);
             }
         }
     }
@@ -225,6 +238,24 @@ export class Element extends xmloperation {
             if (result != null) {
                 this.container = result[1];
                 this.value = result[2] || "";
+            } else {
+                // Fallback to original pattern if new pattern doesn't match
+                const fallbackReg = new RegExp("(<"+ firstTag +" [^>]+?[^/]>)([\\s\\S]*?)</"+ firstTag +">|(<"+ firstTag +">)([\\s\\S]*?)</"+ firstTag +">", "g");
+                result = fallbackReg.exec(str);
+                if (result != null) {
+                    if(result[1]!=null){
+                        this.container = result[1];
+                        this.value = result[2];
+                    }
+                    else{
+                        this.container = result[3];
+                        this.value = result[4];
+                    }
+                } else {
+                    // If still no match, set container to the whole string as a fallback
+                    this.container = str;
+                    this.value = "";
+                }
             }
         }
     }
