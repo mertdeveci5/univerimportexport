@@ -386,23 +386,28 @@ export class LuckySheet extends LuckySheetBase {
         return {}
     }
     private getGraphic = (twoCellAnchor: Element, drawingRelsFile: string) => {
-        const xdr_graphicFrames = twoCellAnchor.getInnerElements("xdr:graphicFrame");
-        if (xdr_graphicFrames.length) {
-            const xdr_graphicFrame = xdr_graphicFrames[0];
-            const chartImageGroup = new ChartImageGroup({
-                graphicFrame: xdr_graphicFrame,
-                readXml: this.readXml,
-                drawingRelsFile,
-                styles: this.styles,
-            })
-            const imageObject = chartImageGroup.image;
-            if (chartImageGroup.chart) {
-                if(this.charts==null){
-                    this.charts = [];
+        try {
+            const xdr_graphicFrames = twoCellAnchor.getInnerElements("xdr:graphicFrame");
+            if (xdr_graphicFrames.length) {
+                const xdr_graphicFrame = xdr_graphicFrames[0];
+                const chartImageGroup = new ChartImageGroup({
+                    graphicFrame: xdr_graphicFrame,
+                    readXml: this.readXml,
+                    drawingRelsFile,
+                    styles: this.styles,
+                })
+                const imageObject = chartImageGroup.image;
+                if (chartImageGroup.chart) {
+                    if(this.charts==null){
+                        this.charts = [];
+                    }
+                    this.charts.push(chartImageGroup.chart)
                 }
-                this.charts.push(chartImageGroup.chart)
+                return imageObject;
             }
-            return imageObject;
+        } catch (error) {
+            console.warn('Failed to process chart/graphic, skipping:', error);
+            // Return empty object to continue processing
         }
         return {};
     }
