@@ -187,6 +187,9 @@ export interface IluckySheetCelldataValue{
     f: string | undefined, //formula
     qp:number | undefined //quotePrefix, show number as string
     ti:number | undefined //text indent
+    // Array formula support
+    ft?: string | undefined, // formula type: "shared" | "array"  
+    ref?: string | undefined // array formula range reference
 }
 
 

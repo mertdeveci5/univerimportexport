@@ -24,12 +24,22 @@ export interface HyperLink {
     row: number;
     column: number;
 }
+
+export interface ArrayFormula {
+    formula: string;
+    range: {startRow: number, endRow: number, startCol: number, endCol: number};
+    masterRow: number;
+    masterCol: number;
+}
+
 export interface UniverSheetMode extends UniverSheetBase {
     hyperLink: HyperLink[];
+    arrayFormulas: ArrayFormula[];
     mode: UniverSheetMode;
 }
 export class UniverSheet extends UniverSheetBase {
     hyperLink: HyperLink[] = [];
+    arrayFormulas: ArrayFormula[] = [];
     constructor(sheetData: IluckySheet) {
         super();
         const {
@@ -55,12 +65,11 @@ export class UniverSheet extends UniverSheetBase {
 
             if (config.merge) this.mergeData = this.handleMerge(config);
 
-            if (celldata?.length) {
-                const { cellData, rowCount, colCount } = this.handleCellData(celldata, config);
-                this.cellData = cellData;
-                this.rowCount = this.rowCount > rowCount ? this.rowCount : rowCount + 1;
-                this.columnCount = this.columnCount > colCount ? this.columnCount : colCount + 1;
-            }
+            // Always process sheet data, even if celldata is empty to preserve empty sheets
+            const { cellData, rowCount, colCount } = this.handleCellData(celldata || [], config);
+            this.cellData = cellData;
+            this.rowCount = this.rowCount > rowCount ? this.rowCount : rowCount + 1;
+            this.columnCount = this.columnCount > colCount ? this.columnCount : colCount + 1;
             console.log(this.rowCount, this.columnCount)
             this.handleRowAndColumnData(config);
             if (sheetData.freezen) this.handleFreeze(sheetData.freezen);
@@ -91,6 +100,7 @@ export class UniverSheet extends UniverSheetBase {
             rightToLeft: this.rightToLeft,
             selections: this.selections,
             hyperLink: this.hyperLink,
+            arrayFormulas: this.arrayFormulas,
         };
     }
     private handleMerge = (config: IluckySheetConfig): IRange[] => {
@@ -136,6 +146,23 @@ export class UniverSheet extends UniverSheetBase {
 
             // Handle formulas - preserve formula and calculated value
             const f = v.f?.replace(/=_xlfn./g, '=');
+            
+            // Check if this is an array formula
+            const isArrayFormula = v.ft === 'array' && v.ref;
+            let arrayFormulaRange = null;
+            if (isArrayFormula && v.ref && f) {
+                // Parse the array formula range (e.g., "A1:C3")
+                arrayFormulaRange = this.parseRange(v.ref);
+                if (arrayFormulaRange) {
+                    // Store array formula information for later processing
+                    this.arrayFormulas.push({
+                        formula: f,
+                        range: arrayFormulaRange,
+                        masterRow: row.r,
+                        masterCol: row.c
+                    });
+                }
+            }
             
             const cell: ICellData = {
                 // custom: v., // User stored custom fields
@@ -190,6 +217,10 @@ export class UniverSheet extends UniverSheetBase {
                 cell[element.r][element.c] = handleCell(element);
             }
         });
+        
+        // Apply array formulas to all cells in their ranges
+        this.applyArrayFormulas(cell);
+        
         return {
             cellData: cell,
             rowCount: rowData.length,
@@ -500,5 +531,89 @@ export class UniverSheet extends UniverSheetBase {
             startColumn: freeze.vertical,
             startRow: freeze.horizen,
         };
+    };
+
+    /**
+     * Apply array formulas to all cells in their ranges
+     */
+    private applyArrayFormulas = (cellData: IObjectMatrixPrimitiveType<ICellData>) => {
+        for (const arrayFormula of this.arrayFormulas) {
+            const { formula, range, masterRow, masterCol } = arrayFormula;
+            
+            // Apply the formula to all cells in the range
+            for (let r = range.startRow; r <= range.endRow; r++) {
+                for (let c = range.startCol; c <= range.endCol; c++) {
+                    if (!cellData[r]) cellData[r] = {};
+                    if (!cellData[r][c]) cellData[r][c] = {};
+                    
+                    // For array formulas like TRANSPOSE, only the master cell should have the formula
+                    // Other cells should reference the master cell or be empty initially
+                    if (r === masterRow && c === masterCol) {
+                        cellData[r][c].f = formula;
+                    } else {
+                        // For non-master cells in an array formula, they may contain calculated values
+                        // but should not have the formula duplicated
+                        // We'll let Univer handle the array formula expansion
+                        if (!cellData[r][c].v && !cellData[r][c].f) {
+                            // Mark as part of an array formula result
+                            cellData[r][c] = {
+                                v: null, // Will be calculated by Univer
+                                t: CellValueType.STRING
+                            };
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    /**
+     * Parse Excel range string like "A1:C3" to row/column indices
+     */
+    private parseRange = (rangeStr: string): {startRow: number, endRow: number, startCol: number, endCol: number} | null => {
+        try {
+            const parts = rangeStr.split(':');
+            if (parts.length !== 2) return null;
+            
+            const startCell = this.cellRefToIndices(parts[0]);
+            const endCell = this.cellRefToIndices(parts[1]);
+            
+            if (!startCell || !endCell) return null;
+            
+            return {
+                startRow: startCell.row,
+                endRow: endCell.row,
+                startCol: startCell.col,
+                endCol: endCell.col
+            };
+        } catch {
+            return null;
+        }
+    };
+
+    /**
+     * Convert cell reference like "A1" to row/column indices
+     */
+    private cellRefToIndices = (cellRef: string): {row: number, col: number} | null => {
+        try {
+            const match = cellRef.match(/^([A-Z]+)(\d+)$/);
+            if (!match) return null;
+            
+            const colStr = match[1];
+            const rowStr = match[2];
+            
+            // Convert column letters to number (A=0, B=1, etc.)
+            let col = 0;
+            for (let i = 0; i < colStr.length; i++) {
+                col = col * 26 + (colStr.charCodeAt(i) - 64);
+            }
+            col -= 1; // Convert to 0-based
+            
+            const row = parseInt(rowStr) - 1; // Convert to 0-based
+            
+            return { row, col };
+        } catch {
+            return null;
+        }
     };
 }

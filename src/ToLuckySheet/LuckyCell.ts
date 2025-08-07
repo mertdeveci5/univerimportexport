@@ -88,11 +88,23 @@ export class LuckySheetCelldata extends LuckySheetCelldataBase {
                 this._fomulaRef = ref;
                 this._formulaType = t;
                 this._formulaSi = si;
+            } else if (t == "array") {
+                // Handle array formulas like TRANSPOSE
+                this._fomulaRef = ref;
+                this._formulaType = t;
             }
             // console.log(ref, t, si);
             if (ref != null || (formulaValue != null && formulaValue.length > 0)) {
                 formulaValue = escapeCharacter(formulaValue);
                 cellValue.f = formulaValue[0] === '=' ? formulaValue : "=" + formulaValue;
+                
+                // Store array formula information
+                if (t == "array" || t == "shared") {
+                    cellValue.ft = t;
+                    if (ref) {
+                        cellValue.ref = ref;
+                    }
+                }
             }
 
         }

@@ -95,6 +95,9 @@ export class LuckySheetCelldataValue implements IluckySheetCelldataValue{
     rt:number | undefined //text rotation angle 0-180 alignment
     qp:number | undefined //quotePrefix, show number as string
     ti:number | undefined //text indent
+    // Array formula support
+    ft?: string | undefined // formula type: "shared" | "array"  
+    ref?: string | undefined // array formula range reference
 }
 
 
