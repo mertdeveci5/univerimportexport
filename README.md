@@ -1,4 +1,4 @@
-# @univerjs/import-export
+# @mertdeveci55/univer-import-export
 
 A comprehensive Excel/CSV import and export library for [Univer](https://github.com/dream-num/univer) spreadsheets with full format preservation.
 
@@ -27,13 +27,13 @@ A comprehensive Excel/CSV import and export library for [Univer](https://github.
 ## Installation
 
 ```bash
-npm install @univerjs/import-export
+npm install @mertdeveci55/univer-import-export
 ```
 
 or
 
 ```bash
-yarn add @univerjs/import-export
+yarn add @mertdeveci55/univer-import-export
 ```
 
 ## Usage
@@ -41,7 +41,7 @@ yarn add @univerjs/import-export
 ### Import Excel to Univer
 
 ```javascript
-import { LuckyExcel } from '@univerjs/import-export';
+import { LuckyExcel } from '@mertdeveci55/univer-import-export';
 
 // Handle file input
 const fileInput = document.getElementById('file-input');
@@ -67,7 +67,7 @@ fileInput.addEventListener('change', (e) => {
 ### Import CSV to Univer
 
 ```javascript
-import { LuckyExcel } from '@univerjs/import-export';
+import { LuckyExcel } from '@mertdeveci55/univer-import-export';
 
 LuckyExcel.transformCsvToUniver(
     csvFile,
@@ -84,7 +84,7 @@ LuckyExcel.transformCsvToUniver(
 ### Export Univer to Excel
 
 ```javascript
-import { LuckyExcel } from '@univerjs/import-export';
+import { LuckyExcel } from '@mertdeveci55/univer-import-export';
 
 // Get Univer snapshot
 const snapshot = univer.getActiveWorkbook().save();
@@ -104,7 +104,7 @@ LuckyExcel.transformUniverToExcel({
 ### Export Univer to CSV
 
 ```javascript
-import { LuckyExcel } from '@univerjs/import-export';
+import { LuckyExcel } from '@mertdeveci55/univer-import-export';
 
 const snapshot = univer.getActiveWorkbook().save();
 

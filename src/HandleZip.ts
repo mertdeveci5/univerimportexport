@@ -15,12 +15,26 @@ export class HandleZip{
     }
 
     unzipFile(successFunc:(file:IuploadfileList)=>void, errorFunc:(err:Error)=>void):void { 
+        console.log('🗜️ [ZIP] Starting unzip operation...');
+        const startTime = Date.now();
+        
         var new_zip:JSZip = new JSZip();
+        console.log('🗜️ [ZIP] Loading file into JSZip...');
+        
         new_zip.loadAsync(this.uploadFile)                                   // 1) read the Blob
         .then(function(zip:any) {
+            console.log('🗜️ [ZIP] File loaded successfully', {
+                fileCount: Object.keys(zip.files).length,
+                elapsed: `${Date.now() - startTime}ms`
+            });
+            
             let fileList:IuploadfileList = <IuploadfileList>{}, lastIndex:number = Object.keys(zip.files).length, index:number=0;
+            let processedFiles:string[] = [];
+            
             zip.forEach(function (relativePath:any, zipEntry:any) {  // 2) print entries
                 let fileName = zipEntry.name;
+                console.log(`🗜️ [ZIP] Processing: ${fileName}`);
+                
                 let fileNameArr = fileName.split(".");
                 let suffix = fileNameArr[fileNameArr.length-1].toLowerCase();
                 let fileType = "string";
@@ -30,20 +44,35 @@ export class HandleZip{
                 else if(suffix=="emf"){
                     fileType = "arraybuffer";
                 }
+                
                 zipEntry.async(fileType).then(function (data:string) {
                     if(fileType=="base64"){
                         data = "data:image/"+ suffix +";base64," + data;
                     }
                     fileList[zipEntry.name] = data;
-                    // console.log(lastIndex, index);
+                    processedFiles.push(fileName);
+                    
+                    console.log(`🗜️ [ZIP] Processed ${index + 1}/${lastIndex}: ${fileName}`);
+                    
                     if(lastIndex==index+1){
+                        console.log('✅ [ZIP] All files processed', {
+                            totalFiles: lastIndex,
+                            processedFiles,
+                            totalTime: `${Date.now() - startTime}ms`
+                        });
                         successFunc(fileList);
                     }
                     index++;
+                }).catch(function(err:Error) {
+                    console.error(`❌ [ZIP] Error processing ${fileName}:`, err);
                 });
             });
             
         }, function (e:Error) {
+            console.error('❌ [ZIP] Error loading file:', {
+                error: e.message,
+                elapsed: `${Date.now() - startTime}ms`
+            });
             errorFunc(e);
         });
     }

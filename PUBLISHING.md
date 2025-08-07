@@ -50,7 +50,7 @@ npm login
 
 3. **Check the package name availability**:
 ```bash
-npm view @univerjs/import-export
+npm view @mertdeveci55/univer-import-export
 # If it returns an error, the name is available
 ```
 
@@ -69,7 +69,10 @@ npm pack
 
 3. **Publish to npm**:
 ```bash
-# For first release
+# For private/restricted package (only you and invited users can install)
+npm publish --access restricted
+
+# Or if you want it public under your scope
 npm publish --access public
 
 # For subsequent releases (after updating version in package.json)
@@ -86,7 +89,7 @@ After publishing, install in your alphafrontend project:
 npm uninstall @mertdeveci55/luckyexcel-fixed
 
 # Install new package
-npm install @univerjs/import-export
+npm install @mertdeveci55/univer-import-export
 ```
 
 Then update your imports:
@@ -95,7 +98,7 @@ Then update your imports:
 import { LuckyExcel } from '@mertdeveci55/luckyexcel-fixed';
 
 // New
-import { LuckyExcel } from '@univerjs/import-export';
+import { LuckyExcel } from '@mertdeveci55/univer-import-export';
 ```
 
 ## Version Management

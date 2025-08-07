@@ -77,31 +77,66 @@ export class LuckyExcel {
         callback?: (files: IWorkbookData, fs?: string) => void,
         errorHandler?: (err: Error) => void
     ) {
+        console.log('🚀 [PACKAGE] transformExcelToUniver START', {
+            fileName: excelFile.name,
+            fileSize: `${(excelFile.size / 1024).toFixed(2)} KB`,
+            fileType: excelFile.type,
+            timestamp: new Date().toISOString()
+        });
+        
+        const startTime = Date.now();
+        
         try {
             // Handle both XLS and XLSX files
             const processExcelFiles = async (files: IuploadfileList) => {
-                console.log('input------>', files);
+                console.log('📦 [PACKAGE] Processing Excel files...', {
+                    fileCount: Object.keys(files).length,
+                    elapsed: `${Date.now() - startTime}ms`
+                });
+                
+                console.log('📦 [PACKAGE] Creating LuckyFile...');
                 let luckyFile = new LuckyFile(files, excelFile.name);
+                
+                console.log('📦 [PACKAGE] Parsing LuckyFile...');
                 let luckysheetfile = luckyFile.Parse();
+                
+                console.log('📦 [PACKAGE] Parsing JSON output...');
                 let exportJson = JSON.parse(luckysheetfile);
-                console.log('output---->', exportJson, files)
+                
+                console.log('📦 [PACKAGE] Parsed data:', {
+                    sheets: exportJson?.data?.length || 0,
+                    elapsed: `${Date.now() - startTime}ms`
+                });
+                
                 if (callback != undefined) {
-                    const univerData = new UniverWorkBook(exportJson)
+                    console.log('📦 [PACKAGE] Creating UniverWorkBook...');
+                    const univerData = new UniverWorkBook(exportJson);
+                    
+                    console.log('📦 [PACKAGE] Calling callback with data...');
                     callback(univerData.mode, luckysheetfile);
+                    console.log('✅ [PACKAGE] transformExcelToUniver COMPLETE', {
+                        totalTime: `${Date.now() - startTime}ms`
+                    });
                 }
             };
 
             // Check if it's an XLS file
             if (HandleXls.isXlsFile(excelFile)) {
-                console.log('Processing XLS file, converting to XLSX first...');
+                console.log('📁 [PACKAGE] XLS file detected, converting to XLSX...');
                 const files = await HandleXls.convertXlsToXlsx(excelFile);
+                console.log('📁 [PACKAGE] XLS conversion complete');
                 await processExcelFiles(files);
             } else {
                 // Handle XLSX file normally
+                console.log('📁 [PACKAGE] XLSX file detected, unzipping...');
                 let handleZip: HandleZip = new HandleZip(excelFile);
                 handleZip.unzipFile(
                     processExcelFiles,
                     function (err: Error) {
+                        console.error('❌ [PACKAGE] Unzip error:', {
+                            error: err.message,
+                            elapsed: `${Date.now() - startTime}ms`
+                        });
                         if (errorHandler) {
                             errorHandler(err);
                         } else {
@@ -111,6 +146,11 @@ export class LuckyExcel {
                 );
             }
         } catch (err) {
+            console.error('❌ [PACKAGE] Transform error:', {
+                error: err instanceof Error ? err.message : String(err),
+                stack: err instanceof Error ? err.stack : undefined,
+                elapsed: `${Date.now() - startTime}ms`
+            });
             if (errorHandler) {
                 errorHandler(err as Error);
             } else {
