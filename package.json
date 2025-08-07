@@ -1,6 +1,6 @@
 {
   "name": "@mertdeveci55/univer-import-export",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Excel/CSV import and export library for Univer spreadsheets with full format preservation",
   "private": false,
   "publishConfig": {

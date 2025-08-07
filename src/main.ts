@@ -129,21 +129,31 @@ export class LuckyExcel {
             } else {
                 // Handle XLSX file normally
                 console.log('📁 [PACKAGE] XLSX file detected, unzipping...');
-                let handleZip: HandleZip = new HandleZip(excelFile);
-                handleZip.unzipFile(
-                    processExcelFiles,
-                    function (err: Error) {
-                        console.error('❌ [PACKAGE] Unzip error:', {
-                            error: err.message,
-                            elapsed: `${Date.now() - startTime}ms`
-                        });
-                        if (errorHandler) {
-                            errorHandler(err);
-                        } else {
-                            console.error(err);
+                
+                // Wrap the callback-based unzipFile in a Promise
+                await new Promise<void>((resolve, reject) => {
+                    let handleZip: HandleZip = new HandleZip(excelFile);
+                    handleZip.unzipFile(
+                        async (files: IuploadfileList) => {
+                            try {
+                                await processExcelFiles(files);
+                                resolve();
+                            } catch (err) {
+                                reject(err);
+                            }
+                        },
+                        function (err: Error) {
+                            console.error('❌ [PACKAGE] Unzip error:', {
+                                error: err.message,
+                                elapsed: `${Date.now() - startTime}ms`
+                            });
+                            if (errorHandler) {
+                                errorHandler(err);
+                            }
+                            reject(err);
                         }
-                    }
-                );
+                    );
+                });
             }
         } catch (err) {
             console.error('❌ [PACKAGE] Transform error:', {
