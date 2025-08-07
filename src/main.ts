@@ -86,61 +86,79 @@ export class LuckyExcel {
         
         const startTime = Date.now();
         
-        try {
-            // Handle both XLS and XLSX files
-            const processExcelFiles = async (files: IuploadfileList) => {
-                console.log('📦 [PACKAGE] Processing Excel files...', {
-                    fileCount: Object.keys(files).length,
-                    elapsed: `${Date.now() - startTime}ms`
-                });
-                
-                console.log('📦 [PACKAGE] Creating LuckyFile...');
-                let luckyFile = new LuckyFile(files, excelFile.name);
-                
-                console.log('📦 [PACKAGE] Parsing LuckyFile...');
-                let luckysheetfile = luckyFile.Parse();
-                
-                console.log('📦 [PACKAGE] Parsing JSON output...');
-                let exportJson = JSON.parse(luckysheetfile);
-                
-                console.log('📦 [PACKAGE] Parsed data:', {
-                    sheets: exportJson?.data?.length || 0,
-                    elapsed: `${Date.now() - startTime}ms`
-                });
-                
-                if (callback != undefined) {
-                    console.log('📦 [PACKAGE] Creating UniverWorkBook...');
-                    const univerData = new UniverWorkBook(exportJson);
-                    
-                    console.log('📦 [PACKAGE] Calling callback with data...');
-                    callback(univerData.mode, luckysheetfile);
-                    console.log('✅ [PACKAGE] transformExcelToUniver COMPLETE', {
-                        totalTime: `${Date.now() - startTime}ms`
-                    });
-                }
-            };
+        // Return a Promise that resolves when the callback is called
+        return new Promise<void>((resolveMain, rejectMain) => {
+            try {
+                // Handle both XLS and XLSX files
+                const processExcelFiles = async (files: IuploadfileList) => {
+                    try {
+                        console.log('📦 [PACKAGE] Processing Excel files...', {
+                            fileCount: Object.keys(files).length,
+                            elapsed: `${Date.now() - startTime}ms`
+                        });
+                        
+                        console.log('📦 [PACKAGE] Creating LuckyFile...');
+                        let luckyFile = new LuckyFile(files, excelFile.name);
+                        
+                        console.log('📦 [PACKAGE] Parsing LuckyFile...');
+                        let luckysheetfile = luckyFile.Parse();
+                        
+                        console.log('📦 [PACKAGE] Parsing JSON output...');
+                        let exportJson = JSON.parse(luckysheetfile);
+                        
+                        console.log('📦 [PACKAGE] Parsed data:', {
+                            sheets: exportJson?.data?.length || 0,
+                            elapsed: `${Date.now() - startTime}ms`
+                        });
+                        
+                        if (callback != undefined) {
+                            console.log('📦 [PACKAGE] Creating UniverWorkBook...');
+                            const univerData = new UniverWorkBook(exportJson);
+                            
+                            console.log('📦 [PACKAGE] Calling callback with data...');
+                            callback(univerData.mode, luckysheetfile);
+                            console.log('✅ [PACKAGE] transformExcelToUniver COMPLETE', {
+                                totalTime: `${Date.now() - startTime}ms`
+                            });
+                        }
+                        resolveMain();
+                    } catch (err) {
+                        console.error('❌ [PACKAGE] Process error:', err);
+                        if (errorHandler) {
+                            errorHandler(err as Error);
+                        }
+                        rejectMain(err);
+                    }
+                };
 
-            // Check if it's an XLS file
-            if (HandleXls.isXlsFile(excelFile)) {
-                console.log('📁 [PACKAGE] XLS file detected, converting to XLSX...');
-                const files = await HandleXls.convertXlsToXlsx(excelFile);
-                console.log('📁 [PACKAGE] XLS conversion complete');
-                await processExcelFiles(files);
-            } else {
-                // Handle XLSX file normally
-                console.log('📁 [PACKAGE] XLSX file detected, unzipping...');
-                
-                // Wrap the callback-based unzipFile in a Promise
-                await new Promise<void>((resolve, reject) => {
+                // Check if it's an XLS file
+                if (HandleXls.isXlsFile(excelFile)) {
+                    console.log('📁 [PACKAGE] XLS file detected, converting to XLSX...');
+                    HandleXls.convertXlsToXlsx(excelFile)
+                        .then(files => {
+                            console.log('📁 [PACKAGE] XLS conversion complete');
+                            return processExcelFiles(files);
+                        })
+                        .catch(err => {
+                            console.error('❌ [PACKAGE] XLS conversion error:', err);
+                            if (errorHandler) {
+                                errorHandler(err);
+                            }
+                            rejectMain(err);
+                        });
+                } else {
+                    // Handle XLSX file normally
+                    console.log('📁 [PACKAGE] XLSX file detected, unzipping...');
                     let handleZip: HandleZip = new HandleZip(excelFile);
                     handleZip.unzipFile(
-                        async (files: IuploadfileList) => {
-                            try {
-                                await processExcelFiles(files);
-                                resolve();
-                            } catch (err) {
-                                reject(err);
-                            }
+                        (files: IuploadfileList) => {
+                            processExcelFiles(files).catch(err => {
+                                console.error('❌ [PACKAGE] Processing error:', err);
+                                if (errorHandler) {
+                                    errorHandler(err);
+                                }
+                                rejectMain(err);
+                            });
                         },
                         function (err: Error) {
                             console.error('❌ [PACKAGE] Unzip error:', {
@@ -150,23 +168,22 @@ export class LuckyExcel {
                             if (errorHandler) {
                                 errorHandler(err);
                             }
-                            reject(err);
+                            rejectMain(err);
                         }
                     );
+                }
+            } catch (err) {
+                console.error('❌ [PACKAGE] Transform error:', {
+                    error: err instanceof Error ? err.message : String(err),
+                    stack: err instanceof Error ? err.stack : undefined,
+                    elapsed: `${Date.now() - startTime}ms`
                 });
+                if (errorHandler) {
+                    errorHandler(err as Error);
+                }
+                rejectMain(err);
             }
-        } catch (err) {
-            console.error('❌ [PACKAGE] Transform error:', {
-                error: err instanceof Error ? err.message : String(err),
-                stack: err instanceof Error ? err.stack : undefined,
-                elapsed: `${Date.now() - startTime}ms`
-            });
-            if (errorHandler) {
-                errorHandler(err as Error);
-            } else {
-                console.error(err);
-            }
-        }
+        });
     }
 
     static transformCsvToUniver(
