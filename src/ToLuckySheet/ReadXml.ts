@@ -4,12 +4,46 @@ import {LightenDarkenColor}  from "../common/method";
 
 
 class xmloperation {
+    // Escape problematic characters in XML attributes to prevent regex issues
+    private escapeXmlAttributes(xmlString: string): string {
+        // Replace > characters within quoted attribute values with a safe placeholder
+        // This regex matches attribute="value" patterns (including namespace prefixes like r:id)
+        let hasEscaped = false;
+        const result = xmlString.replace(/([\w:]+)="([^"]*)"/g, (match, attrName, attrValue) => {
+            if (attrValue.includes('>')) {
+                // Replace > with __GT__ placeholder inside attribute values
+                const escapedValue = attrValue.replace(/>/g, '__GT__');
+                hasEscaped = true;
+                console.log(`🔄 [ReadXml] Escaping attribute: ${attrName}="${attrValue}" -> ${attrName}="${escapedValue}"`);
+                return `${attrName}="${escapedValue}"`;
+            }
+            return match;
+        });
+        
+        if (hasEscaped) {
+            console.log('🔄 [ReadXml] Escaped problematic characters in XML');
+        }
+        return result;
+    }
+    
+    // Restore escaped characters back to original
+    private unescapeXmlAttributes(xmlString: string): string {
+        if (xmlString.includes('__GT__')) {
+            console.log('🔄 [ReadXml] Unescaping XML attributes');
+            return xmlString.replace(/__GT__/g, '>');
+        }
+        return xmlString;
+    }
+    
     /**
     * @param tag Search xml tag name , div,title etc.
     * @param file Xml string
     * @return Xml element string 
     */
     protected getElementsByOneTag(tag:string, file:string):string[]{
+        // Escape problematic characters in the XML before parsing
+        const escapedFile = this.escapeXmlAttributes(file);
+        
         //<a:[^/>: ]+?>.*?</a:[^/>: ]+?>
         let readTagReg;
         if(tag.indexOf("|")>-1){
@@ -25,12 +59,13 @@ class xmloperation {
             readTagReg = new RegExp("<"+ tag +" [^>]+?[^/]>[\\s\\S]*?</"+ tag +">|<"+ tag +" [^>]+?/>|<"+ tag +">[\\s\\S]*?</"+ tag +">|<"+ tag +"/>", "g");
         }
         
-        let ret = file.match(readTagReg);
+        let ret = escapedFile.match(readTagReg);
         if(ret==null){
             return [];
         }
         else{
-            return ret;
+            // Unescape the matched results before returning
+            return ret.map(match => this.unescapeXmlAttributes(match));
         }
     }
 
