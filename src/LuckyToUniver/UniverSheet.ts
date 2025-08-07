@@ -61,7 +61,7 @@ export class UniverSheet extends UniverSheetBase {
                 this.rowCount = this.rowCount > rowCount ? this.rowCount : rowCount + 1;
                 this.columnCount = this.columnCount > colCount ? this.columnCount : colCount + 1;
             }
-            // console.log(this.rowCount, this.columnCount)
+            console.log(this.rowCount, this.columnCount)
             this.handleRowAndColumnData(config);
             if (sheetData.freezen) this.handleFreeze(sheetData.freezen);
         }
@@ -131,27 +131,17 @@ export class UniverSheet extends UniverSheetBase {
             if (this.hyperLink.findIndex((d) => d.column === row.c && d.row === row.r) > -1)
                 cellType = CellValueType.STRING;
 
-            // Remove _xlfn. prefix and @ symbol (Excel 365 implicit intersection operator)
-            // Step 1: Remove _xlfn. prefix
-            let f = v.f?.replace(/=_xlfn./g, '=');
+            // Handle formulas - preserve formula and calculated value
+            const f = v.f?.replace(/=_xlfn./g, '=');
             
-            // Step 2: Remove @ from Excel 365 dynamic array functions and cell references
-            if (f) {
-                // Remove @ before function names like @TRANSPOSE
-                f = f.replace(/@(TRANSPOSE|SORT|SORTBY|FILTER|UNIQUE|SEQUENCE|RANDARRAY|ANCHORARRAY)\(/gi, '$1(');
-                
-                // Remove @ before cell/range references (including inside parentheses)
-                // This handles @$N$43:$N$45, @A1, @$A$1:$B$2, etc.
-                f = f.replace(/@(\$?[A-Za-z]+\$?[0-9]+(?::\$?[A-Za-z]+\$?[0-9]+)?)/g, '$1');
-            }
             const cell: ICellData = {
                 // custom: v., // User stored custom fields
                 f,
                 // p: , // The unique key, a random string, is used for the plug-in to associate the cell. When the cell information changes, the plug-in does not need to change the data, reducing the pressure on the back-end interface id?: string.
                 s: handleStyle(row, borderConf),
-                // si: f, // Id of the formula.
+                // si: Handle shared formula ID if available from other sources
                 t: cellType,
-                v: val,
+                v: val, // Always preserve the calculated value
             };
             const pVal = this.handleDocument(row, config);
             if (pVal) cell.p = pVal;

@@ -1,40 +1,52 @@
-.*.swp
-
-._*
-
-.DS_Store
-
-.git
-
-.hg
-
-.npmrc
-
-.lock-wscript
-
-.svn
-
-.wafpickle-*
-
-config.gypi
-
-CVS
-
-npm-debug.log
-
-node_modules/
-
-dist/luckysheet/
-dist/*.map
-dist/index.html
-assets/
-src
-deploy.bat
+# Source files (only include dist)
+src/
 gulpfile.js
 tsconfig.json
-.vs
 
-.vscode
-.release-it.json
-commitlint.config.js
-CHANGELOG.md
+# Development files
+.git/
+.gitignore
+.vscode/
+.idea/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+test/
+tests/
+coverage/
+.nyc_output/
+
+# Build tools
+.babelrc
+.eslintrc*
+.prettierrc*
+
+# Documentation source
+docs/
+
+# Examples
+examples/
+demo/
+
+# CI/CD
+.github/
+.travis.yml
+.gitlab-ci.yml
+
+# Temporary files
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+tmp/
+temp/
+
+# Keep only the built files
+!dist/
+!README.md
+!LICENSE
+!package.json

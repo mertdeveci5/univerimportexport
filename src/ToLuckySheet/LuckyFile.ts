@@ -132,10 +132,6 @@ export class LuckyFile extends LuckyFileBase {
             sheetList[sheet.attributeList.name] = sheet.attributeList["sheetId"];
         }
         this.sheets = [];
-        
-        // DEBUG: Empty sheets
-        console.log('[DEBUG] Total sheets found in workbook.xml:', Object.keys(sheets).length);
-        console.log('[DEBUG] Sheet names found:', Object.keys(sheets).map(k => (sheets as any)[k].attributeList.name));
         let order = 0;
         for(let key in sheets){
             let sheet = sheets[key];
@@ -144,24 +140,19 @@ export class LuckyFile extends LuckyFileBase {
             let rid = sheet.attributeList["r:id"];
             let sheetFile = this.getSheetFileBysheetId(rid);
             let hide = sheet.attributeList.state === "hidden" ? 1 : 0;
-            
-            // DEBUG: Empty sheets
-            console.log(`[DEBUG] Processing sheet "${sheetName}" (id: ${sheetId}, rid: ${rid}), has sheetFile: ${!!sheetFile}`);
 
-            let drawing = null, drawingFile, drawingRelsFile;
-            if(sheetFile) {
-                drawing = this.readXml.getElementsByTagName("worksheet/drawing", sheetFile);
-                if(drawing!=null && drawing.length>0){
-                    let attrList = drawing[0].attributeList;
-                    let rid = getXmlAttibute(attrList, "r:id", null);
-                    if(rid!=null){
-                        drawingFile = this.getDrawingFile(rid, sheetFile);
-                        drawingRelsFile = this.getDrawingRelsFile(drawingFile);
-                    }
+            let drawing = this.readXml.getElementsByTagName("worksheet/drawing", sheetFile), drawingFile, drawingRelsFile;
+            if(drawing!=null && drawing.length>0){
+                let attrList = drawing[0].attributeList;
+                let rid = getXmlAttibute(attrList, "r:id", null);
+                if(rid!=null){
+                    drawingFile = this.getDrawingFile(rid, sheetFile);
+                    drawingRelsFile = this.getDrawingRelsFile(drawingFile);
                 }
             }
 
-            // Always create a sheet, even if sheetFile is null (empty sheet)
+            // Always create sheet, even if file is null (empty sheet)
+            // This preserves all sheets including empty ones
             let luckySheet = new LuckySheet(sheetName, sheetId, order, isInitialCell,
                 {
                     sheetFile:sheetFile,
@@ -180,17 +171,14 @@ export class LuckyFile extends LuckyFileBase {
             this.columnWidthSet = [];
             this.rowHeightSet = [];
 
-            this.imagePositionCaculation(luckySheet);
+            // Only do image calculation if sheet has content
+            if(sheetFile!=null){
+                this.imagePositionCaculation(luckySheet);
+            }
 
             this.sheets.push(luckySheet);
-            
-            // DEBUG: Empty sheets
-            console.log(`[DEBUG] Sheet "${sheetName}" added to sheets array`);
             order++;
         }
-        
-        // DEBUG: Empty sheets final count
-        console.log('[DEBUG] Final sheets count after processing:', this.sheets.length);
     }
 
     private columnWidthSet:number[] = [];

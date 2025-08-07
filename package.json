@@ -1,7 +1,7 @@
 {
-  "name": "@mertdeveci55/luckyexcel-fixed",
-  "version": "1.2.3",
-  "description": "An excel import and export library adapted to Luckysheet",
+  "name": "@univerjs/import-export",
+  "version": "0.1.0",
+  "description": "Excel/CSV import and export library for Univer spreadsheets with full format preservation",
   "main": "dist/luckyexcel.cjs.js",
   "module": "dist/luckyexcel.esm.js",
   "browser": "dist/luckyexcel.umd.js",
@@ -33,14 +33,23 @@
     "release:beta": "release-it --preRelease=beta"
   },
   "keywords": [
-    "Luckysheet",
-    "excel"
+    "univer",
+    "spreadsheet",
+    "excel",
+    "csv",
+    "import",
+    "export",
+    "xlsx",
+    "xls"
   ],
-  "author": "zwight0705@gmail.com",
-  "homepage": "https://github.com/zwight/Luckyexcel",
+  "author": "mertdeveci",
+  "homepage": "https://github.com/mertdeveci/univerjs-import-export",
   "repository": {
     "type": "git",
-    "url": "https://github.com/zwight/Luckyexcel.git"
+    "url": "git+https://github.com/mertdeveci/univerjs-import-export.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mertdeveci/univerjs-import-export/issues"
   },
   "license": "MIT",
   "devDependencies": {
@@ -82,9 +91,11 @@
     "@progress/jszip-esm": "^1.0.4",
     "@univerjs/core": "^0.6.10",
     "@zwight/exceljs": "4.4.2",
+    "@zwight/luckyexcel": "^1.1.6",
     "dayjs": "^1.11.13",
     "nanoid": "^3.3.11",
     "papaparse": "^5.5.3",
+    "xlsx": "^0.18.5",
     "xml2js": "^0.6.2"
   },
   "config": {

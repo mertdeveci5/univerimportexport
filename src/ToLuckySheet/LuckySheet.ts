@@ -50,21 +50,16 @@ export class LuckySheet extends LuckySheetBase {
         this.config = new LuckyConfig();
         this.celldata = [];
         
-        // Handle empty sheets (no sheetFile)
-        if (!this.sheetFile) {
-            // Set minimal defaults for empty sheet
+        // Handle empty sheets (when sheetFile is null)
+        if(!this.sheetFile) {
+            // Set defaults for empty sheet
             this.showGridLines = "1";
             this.status = "0";
             this.zoomRatio = 1;
-            this.defaultColWidth = 72;
+            this.defaultColWidth = 73;
             this.defaultRowHeight = 19;
             this.row = 84;
             this.column = 60;
-            this.luckysheet_select_save = [{
-                row: [0, 0],
-                column: [0, 0]
-            }];
-            this.calcChain = [];
             return;
         }
         

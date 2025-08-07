@@ -22,6 +22,10 @@ export class FrozenView implements WorksheetViewFrozen{
 }
 export function ExcelWorkSheet(workbook: Workbook, snapshot: any) {
     const { sheetOrder, sheets, styles, resources } = snapshot;
+    if (!sheetOrder || !Array.isArray(sheetOrder)) {
+        console.warn('[ExcelWorkSheet] No sheetOrder found in snapshot');
+        return;
+    }
     sheetOrder.forEach((sheetId: string) => {
         const sheet = sheets[sheetId];
         const { 
@@ -40,7 +44,7 @@ export function ExcelWorkSheet(workbook: Workbook, snapshot: any) {
         commonView.rightToLeft = rightToLeft === 1;
         commonView.showGridLines = showGridlines === 1;
         const frozenView = new FrozenView();
-        if (freeze.xSplit > 0 || freeze.ySplit > 0){
+        if (freeze && (freeze.xSplit > 0 || freeze.ySplit > 0)){
             frozenView.state = 'frozen';
             frozenView.xSplit = freeze.xSplit;
             frozenView.ySplit = freeze.ySplit;
@@ -70,6 +74,9 @@ export function ExcelWorkSheet(workbook: Workbook, snapshot: any) {
 
 
 function setMerges(worksheet: Worksheet, mergeData: any[]) {
+    if (!mergeData || !Array.isArray(mergeData)) {
+        return;
+    }
     mergeData.forEach(d => {
         worksheet.mergeCells(d.startRow + 1, d.startColumn + 1, d.endRow + 1, d.endColumn + 1)
     })
@@ -86,7 +93,7 @@ function setCell(worksheet: Worksheet, sheet: any, styles: any, snapshot: any, w
             // console.log(rowid + 1, columnid + 1)
             const target = worksheet.getCell(Number(rowid) + 1, Number(columnid) + 1)
 
-            target.value = handleValue(cell, {
+            const valueFromHandle = handleValue(cell, {
                 resources,
                 sheetId: id,
                 rowId: rowid,
@@ -94,33 +101,42 @@ function setCell(worksheet: Worksheet, sheet: any, styles: any, snapshot: any, w
                 sheets
             }, workbook );
             
+            console.log('[DEBUG] Export - Cell', Number(rowid) + 1, Number(columnid) + 1, 'value from handleValue:', JSON.stringify(valueFromHandle));
+            target.value = valueFromHandle;
+            
             // Post-process: Remove @ symbols that ExcelJS adds to named ranges
             // This happens after ExcelJS processes the formula
             if (target.value && typeof target.value === 'object' && 'formula' in target.value) {
                 const originalFormula = target.value.formula;
                 
-                // Only remove @ from named ranges (not cell references or functions)
-                // This regex matches @ followed by a valid identifier that is NOT:
-                // - A cell reference (like A1, $A$1)
-                // - Part of a structured reference (like @[Column])
-                const cleanedFormula = originalFormula.replace(
-                    /@([A-Za-z_][A-Za-z0-9_]*)\b(?![\[\(:])/g,
-                    (match, name) => {
-                        // Check if this looks like a cell reference pattern
-                        if (/^[A-Z]+[0-9]+$/i.test(name)) {
-                            return match; // Keep @ for cell references (shouldn't happen)
-                        }
-                        // Otherwise it's a named range, remove @
-                        return name;
-                    }
-                );
+                // Remove incorrectly placed @ symbols
+                // ExcelJS sometimes adds @ symbols where they shouldn't be:
+                // 1. Before function names: @TRANSPOSE -> TRANSPOSE  
+                // 2. Before cell references in functions: (@$N$43:$N$45) -> ($N$43:$N$45)
+                // 3. Before named ranges: @circ -> circ
+                let cleanedFormula = originalFormula;
+                
+                // Fix: Remove @ from function names (like @TRANSPOSE)
+                cleanedFormula = cleanedFormula.replace(/@([A-Z][A-Z0-9_]*)\s*\(/g, '$1(');
+                
+                // Fix: Remove @ from cell references (like @$N$43 or @A1)
+                cleanedFormula = cleanedFormula.replace(/@(\$?[A-Z]+\$?\d+)/g, '$1');
+                
+                // Fix: Remove @ from named ranges (but not structured references like @[Column])
+                cleanedFormula = cleanedFormula.replace(/@([A-Za-z_][A-Za-z0-9_]*)\b(?![\[])/g, '$1');
                 
                 // Debug log
                 if (originalFormula !== cleanedFormula) {
-                    // console.log('Cleaned formula on export:', originalFormula, '->', cleanedFormula);
+                    console.log('[DEBUG] Export - Cleaned @ symbols in formula:', originalFormula, '->', cleanedFormula);
                 }
                 
                 // Create new value object with cleaned formula
+                // IMPORTANT: Also ensure no leading = to prevent double equals issue
+                if (cleanedFormula.startsWith('=')) {
+                    cleanedFormula = cleanedFormula.substring(1);
+                    console.log('[DEBUG] Export - Also stripped leading = from @ cleaned formula');
+                }
+                
                 target.value = {
                     formula: cleanedFormula,
                     result: target.value.result
@@ -208,7 +224,13 @@ function handleValue(cell: any, cellSource: any, workbook: Workbook) {
     } else if (cell.si) {
         // Validate shared formula
         if (typeof cell.si === 'string' && !cell.si.includes('#REF!') && !cell.si.includes('#NAME?')) {
-            value = { formula: cell.si, result: cell.v }
+            // Fix double equals issue: ExcelJS expects formulas WITHOUT the leading =
+            let formula = cell.si;
+            if (formula.startsWith('=')) {
+                formula = formula.substring(1);
+            }
+            console.log('[DEBUG] Export - Processing shared formula:', cell.si, '->', formula);
+            value = { formula: formula, result: cell.v }
         } else {
             console.log('[DEBUG] Export - Skipping invalid shared formula:', cell.si);
             value = cell.v || '';
@@ -217,7 +239,15 @@ function handleValue(cell: any, cellSource: any, workbook: Workbook) {
         // Handle regular formulas (not just shared formulas)
         // Validate formula before adding
         if (typeof cell.f === 'string' && !cell.f.includes('#REF!') && !cell.f.includes('#NAME?')) {
-            value = { formula: cell.f, result: cell.v }
+            // Fix double equals issue: ExcelJS expects formulas WITHOUT the leading =
+            let formula = cell.f;
+            console.log('[DEBUG] Export - Original formula from Univer:', formula);
+            if (formula.startsWith('=')) {
+                formula = formula.substring(1);
+                console.log('[DEBUG] Export - Stripped leading = from formula');
+            }
+            console.log('[DEBUG] Export - Final formula to ExcelJS:', formula);
+            value = { formula: formula, result: cell.v }
         } else {
             console.log('[DEBUG] Export - Skipping invalid formula:', cell.f);
             value = cell.v || '';

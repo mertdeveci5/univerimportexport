@@ -16,13 +16,13 @@ export class CSV {
             if (!sheet) return;
             const { cellData, name } = sheet;
             const list: Array<Array<any>> = []
-            for (const key in cellData) {
-                const rows = cellData[key];
-                for (const key in rows) {
-                    const row = Number(key);
-                    const col = Number(key);
+            for (const rowKey in cellData) {
+                const rows = cellData[rowKey];
+                for (const colKey in rows) {
+                    const row = Number(rowKey);
+                    const col = Number(colKey);
                     if (!list[row]) list[row] = [];
-                    list[row][col] = rows[key]?.v
+                    list[row][col] = rows[colKey]?.v
                 }
             }
             data[name] = list;

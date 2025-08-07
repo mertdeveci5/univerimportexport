@@ -1,147 +1,210 @@
-English| [简体中文](./README-zh.md)
+# @univerjs/import-export
 
->Warning:
-this project was forked from [Luckyexcel](https://github.com/dream-num/Luckyexcel), base on the last commit on 2022-06-10 [5a0be428b9fead1479a0890d19fb26ae0a291a1c](https://github.com/dream-num/Luckyexcel/commit/5a0be428b9fead1479a0890d19fb26ae0a291a1c)
-
-## Introduction
-This project is based on the import of [Luckyexcel](https://github.com/dream-num/Luckyexcel), and adds the conversion of [Luckysheet](https://github.com/mengshukeji/Luckysheet) data structure into [Univer](https://github.com/dream-num/univer) data structure. It can directly import and return the data structure required by Univer. In addition, this project also implements the export function based on Univer, supporting the export of .xlsx and .csv format files
+A comprehensive Excel/CSV import and export library for [Univer](https://github.com/dream-num/univer) spreadsheets with full format preservation.
 
 ## Features
-Support Univer import excel and export excel/csv adapter list
 
-- Cell style
-- Cell border
-- Cell format, such as number format, date, percentage, etc.
-- Formula
-- Conditional Formatting
-- Sort
-- Filter
-- Cell image, floating image
+✅ **Import Support**
+- Excel files (.xlsx, .xls)
+- CSV files (.csv)
+- Preserves all sheets (including empty ones)
+- Maintains exact sheet order
+- Full styling preservation (fonts, colors, borders, alignment)
+- Formula and calculated value retention
+- Merged cells support
+- Images and charts
+- Conditional formatting
+- Data validation
 
-### Plan
-The goal is to support all features supported by Univer
+✅ **Export Support**
+- Excel files (.xlsx)
+- CSV files (.csv)
+- Full formatting preservation
+- Formula export
+- Named ranges
+- Multiple sheets
 
-- Pivot table
-- Chart
-- Annotation
+## Installation
+
+```bash
+npm install @univerjs/import-export
+```
+
+or
+
+```bash
+yarn add @univerjs/import-export
+```
 
 ## Usage
 
-### CDN
-```html
-<script src="https://unpkg.com/@univerjs/core/lib/umd/index.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@zwight/luckyexcel/dist/luckyexcel.umd.min.js"></script>
-<script>
-    // Univer import Excel file
+### Import Excel to Univer
+
+```javascript
+import { LuckyExcel } from '@univerjs/import-export';
+
+// Handle file input
+const fileInput = document.getElementById('file-input');
+fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    
     LuckyExcel.transformExcelToUniver(
         file,
-        async (exportJson: any) => {
-            // After obtaining the converted table data, use univer to initialize, or update the existing univer workbook
-            // Note: Univer needs to introduce dependent packages and initialize the table container before it can be used
-            univer.createUnit<IWorkbookData, Workbook>(
-                UniverInstanceType.UNIVER_SHEET,
-                exportJson || {}
-            );
+        (univerData) => {
+            // Use the Univer data
+            console.log('Converted data:', univerData);
+            
+            // Create Univer instance with the data
+            univer.createUnit(UniverInstanceType.UNIVER_SHEET, univerData);
         },
-        (error: any) => {
-            console.log(error);
+        (error) => {
+            console.error('Import error:', error);
         }
     );
-    // Univer import CSV file
-    LuckyExcel.transformCsvToUniver(
-        file,
-        async (data: any) => {
-            // After obtaining the converted table data, use univer to initialize, or update the existing univer workbook
-            // Note: Univer needs to introduce dependent packages and initialize the table container before it can be used
-            univer.createUnit<IWorkbookData, Workbook>(
-                UniverInstanceType.UNIVER_SHEET,
-                data || {}
-            );
-        },
-        (error: any) => {
-            console.log(error);
-        }
-    );
-    // Export Univer to CSV file
-    // snapshot is the Univer snapshot data, getBuffer: true will not download the file, only return the csv content, false will download directly
-    // sheetName: Because Univer may have multiple sheets, csv does not have sheets, if sheetName has a value, only the data of the specified sheet name will be downloaded. If it is not passed, all sheets will be downloaded. The file name is ${fileName}_${sheet.name}
-    LuckyExcel.transformUniverToCsv({
-        snapshot,
-        fileName,
-        getBuffer: true,
-        sheetName: snapshot.sheetOrder[0],
-        success: (buffer: string | { [key: string]: string }) => {
-            console.log('success');
-        },
-        error: (error: Error) => {
-            console.log('error', error);
-        },
-    });
-    // Export Univer to XLSX file
-    // getBuffer: true will not download the file, only return the file's buffer data, false will download directly
-    LuckyExcel.transformUniverToExcel({
-        snapshot,
-        fileName,
-        getBuffer: true,
-        success: (buffer: Buffer) => {
-            console.log('success');
-        },
-        error: (error: Error) => {
-            console.log('error', error);
-        },
-    });
-</script>
-```
-> Case [univer-import-export](https://stackblitz.com/edit/vitejs-vite-phdnaxdt) shows the detailed usage
-
-### ES and Node.js
-
-#### Installation
-```shell
-npm install @zwight/luckyexcel
+});
 ```
 
-#### ES import
-```js
-import LuckyExcel from '@zwight/luckyexcel'
+### Import CSV to Univer
 
-// After getting the xlsx file
-LuckyExcel.transformExcelToUniver(
-    file,
-    async (exportJson: any) => {
-        // Get the worksheet data after conversion
+```javascript
+import { LuckyExcel } from '@univerjs/import-export';
+
+LuckyExcel.transformCsvToUniver(
+    csvFile,
+    (univerData) => {
+        // Use the converted CSV data
+        univer.createUnit(UniverInstanceType.UNIVER_SHEET, univerData);
     },
-    (error: any) => {
-        // handle error if any thrown
+    (error) => {
+        console.error('CSV import error:', error);
     }
 );
 ```
 
+### Export Univer to Excel
+
+```javascript
+import { LuckyExcel } from '@univerjs/import-export';
+
+// Get Univer snapshot
+const snapshot = univer.getActiveWorkbook().save();
+
+LuckyExcel.transformUniverToExcel({
+    snapshot: snapshot,
+    fileName: 'my-spreadsheet.xlsx',
+    success: () => {
+        console.log('Export successful');
+    },
+    error: (err) => {
+        console.error('Export error:', err);
+    }
+});
+```
+
+### Export Univer to CSV
+
+```javascript
+import { LuckyExcel } from '@univerjs/import-export';
+
+const snapshot = univer.getActiveWorkbook().save();
+
+LuckyExcel.transformUniverToCsv({
+    snapshot: snapshot,
+    fileName: 'my-data.csv',
+    sheetName: 'Sheet1', // Optional: specific sheet to export
+    success: () => {
+        console.log('CSV export successful');
+    },
+    error: (err) => {
+        console.error('CSV export error:', err);
+    }
+});
+```
+
+## API Reference
+
+### `LuckyExcel.transformExcelToUniver(file, callback, errorHandler)`
+
+Converts Excel file to Univer format.
+
+- **file**: `File` - The Excel file (.xlsx or .xls)
+- **callback**: `(data: IWorkbookData) => void` - Success callback with converted data
+- **errorHandler**: `(error: Error) => void` - Error callback
+
+### `LuckyExcel.transformCsvToUniver(file, callback, errorHandler)`
+
+Converts CSV file to Univer format.
+
+- **file**: `File` - The CSV file
+- **callback**: `(data: IWorkbookData) => void` - Success callback
+- **errorHandler**: `(error: Error) => void` - Error callback
+
+### `LuckyExcel.transformUniverToExcel(params)`
+
+Exports Univer data to Excel file.
+
+**Parameters object:**
+- **snapshot**: `any` - Univer workbook snapshot
+- **fileName**: `string` - Output filename (optional, default: `excel_[timestamp].xlsx`)
+- **getBuffer**: `boolean` - Return buffer instead of downloading (optional, default: false)
+- **success**: `(buffer?: Buffer) => void` - Success callback
+- **error**: `(err: Error) => void` - Error callback
+
+### `LuckyExcel.transformUniverToCsv(params)`
+
+Exports Univer data to CSV file.
+
+**Parameters object:**
+- **snapshot**: `any` - Univer workbook snapshot
+- **fileName**: `string` - Output filename (optional, default: `csv_[timestamp].csv`)
+- **sheetName**: `string` - Specific sheet to export (optional, exports all if not specified)
+- **getBuffer**: `boolean` - Return content instead of downloading (optional, default: false)
+- **success**: `(content?: string) => void` - Success callback
+- **error**: `(err: Error) => void` - Error callback
+
+## Browser Support
+
+The library works in all modern browsers that support:
+- ES6+
+- File API
+- Blob API
+
 ## Development
 
-### Requirements
-[Node.js](https://nodejs.org/en/) Version >= 6 
+### Building
 
-### Installation
-```
-npm install -g gulp-cli
+```bash
 npm install
-```
-### Development
-```
-npm run dev
-```
-### Package
-```
 npm run build
 ```
 
-A third-party plug-in is used in the project: [JSZip](https://github.com/Stuk/jszip), thanks!
+### Testing
 
-## Authors and acknowledgment
-- [@dream-num](https://github.com/dream-num)
+```bash
+npm test
+```
+
+## Key Improvements in This Version
+
+1. **Empty Sheet Preservation**: Empty sheets are no longer skipped during import
+2. **Sheet Order**: Maintains exact sheet order from original file
+3. **Style Preservation**: Complete style mapping including bold, italic, colors, borders
+4. **Formula Handling**: Preserves both formulas and calculated values
+5. **XLS Support**: Automatic conversion of .xls files to .xlsx format
+6. **Better Error Handling**: Comprehensive error messages and handling
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
-[MIT](http://opensource.org/licenses/MIT)
 
-Copyright (c) 2020-present, zwight
+MIT
+
+## Credits
+
+This project is based on the original [Luckyexcel](https://github.com/dream-num/Luckyexcel) and adapted specifically for Univer spreadsheets with enhanced functionality.
+
+## Support
+
+For issues and feature requests, please visit the [GitHub repository](https://github.com/mertdeveci/univerjs-import-export/issues).

@@ -18,8 +18,9 @@ export class WorkBook extends Workbook {
         // this.properties.date1904 = true;
         this.calcProperties.fullCalcOnLoad = true;
 
+        // Create worksheets first, THEN add defined names
+        ExcelWorkSheet(this, snapshot);
         this.setDefineNames(snapshot.resources);
-        ExcelWorkSheet(this, snapshot)
     }
 
     private setDefineNames(resources: any[]) {
@@ -51,15 +52,38 @@ export class WorkBook extends Workbook {
                 // Validate the formula/reference string
                 const formula = element.formulaOrRefString;
                 
-                // Skip if it contains problematic patterns
-                if (formula.includes('#REF!') || formula.includes('#NAME?') || formula.includes('SHEET_DEFINED_NAME')) {
-                    console.log('[DEBUG] Export - Skipping problematic defined name:', element.name, formula);
+                console.log('[DEBUG] Export - Processing defined name:', element.name, '=', formula);
+                
+                // Only skip if formula contains actual Excel errors (not just suspicious strings)
+                if (formula.includes('#REF!') || formula.includes('#NAME?')) {
+                    console.log('[DEBUG] Export - Skipping invalid defined name with Excel error:', element.name, formula);
                     continue;
                 }
                 
-                this.definedNames.add(formula, element.name);
+                // Validate that name and formula are not empty
+                if (!element.name.trim() || !formula.trim()) {
+                    console.log('[DEBUG] Export - Skipping empty defined name:', element.name, formula);
+                    continue;
+                }
+                
+                // Fix defined names: ExcelJS expects formulas WITHOUT the leading =
+                let cleanFormula = formula;
+                if (cleanFormula.startsWith('=')) {
+                    cleanFormula = cleanFormula.substring(1);
+                }
+                
+                // Add the defined name (ExcelJS: add(name, formula))
+                console.log('[DEBUG] Export - About to add defined name, definedNames type:', typeof this.definedNames);
+                console.log('[DEBUG] Export - definedNames object:', this.definedNames);
+                console.log('[DEBUG] Export - Calling add with:', element.name, cleanFormula);
+                
+                this.definedNames.add(element.name, cleanFormula);
+                
+                console.log('[DEBUG] Export - Successfully added defined name:', element.name);
+                console.log('[DEBUG] Export - definedNames.model after add:', this.definedNames.model);
             } catch (error) {
                 console.log('[DEBUG] Export - Error adding defined name:', element.name, error);
+                // Don't throw, continue with other defined names
             }
         }
     }

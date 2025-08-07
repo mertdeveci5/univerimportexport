@@ -2,6 +2,7 @@ import { LuckyFile } from "./ToLuckySheet/LuckyFile";
 // import {SecurityDoor,Car} from './content';
 
 import { HandleZip } from './HandleZip';
+import { HandleXls } from './HandleXls';
 
 import { IuploadfileList } from "./ICommon";
 
@@ -71,31 +72,51 @@ export class LuckyExcel {
     }
 
 
-    static transformExcelToUniver(
+    static async transformExcelToUniver(
         excelFile: File,
         callback?: (files: IWorkbookData, fs?: string) => void,
         errorHandler?: (err: Error) => void
     ) {
-        let handleZip: HandleZip = new HandleZip(excelFile);
-
-        handleZip.unzipFile(function (files: IuploadfileList) {
-            // console.log('input------>', files);
-            let luckyFile = new LuckyFile(files, excelFile.name);
-            let luckysheetfile = luckyFile.Parse();
-            let exportJson = JSON.parse(luckysheetfile);
-            // console.log('output---->', exportJson, files)
-            if (callback != undefined) {
-                const univerData = new UniverWorkBook(exportJson)
-                callback(univerData.mode, luckysheetfile);
-            }
-        },
-            function (err: Error) {
-                if (errorHandler) {
-                    errorHandler(err);
-                } else {
-                    console.error(err);
+        try {
+            // Handle both XLS and XLSX files
+            const processExcelFiles = async (files: IuploadfileList) => {
+                console.log('input------>', files);
+                let luckyFile = new LuckyFile(files, excelFile.name);
+                let luckysheetfile = luckyFile.Parse();
+                let exportJson = JSON.parse(luckysheetfile);
+                console.log('output---->', exportJson, files)
+                if (callback != undefined) {
+                    const univerData = new UniverWorkBook(exportJson)
+                    callback(univerData.mode, luckysheetfile);
                 }
-            });
+            };
+
+            // Check if it's an XLS file
+            if (HandleXls.isXlsFile(excelFile)) {
+                console.log('Processing XLS file, converting to XLSX first...');
+                const files = await HandleXls.convertXlsToXlsx(excelFile);
+                await processExcelFiles(files);
+            } else {
+                // Handle XLSX file normally
+                let handleZip: HandleZip = new HandleZip(excelFile);
+                handleZip.unzipFile(
+                    processExcelFiles,
+                    function (err: Error) {
+                        if (errorHandler) {
+                            errorHandler(err);
+                        } else {
+                            console.error(err);
+                        }
+                    }
+                );
+            }
+        } catch (err) {
+            if (errorHandler) {
+                errorHandler(err as Error);
+            } else {
+                console.error(err);
+            }
+        }
     }
 
     static transformCsvToUniver(
@@ -152,7 +173,7 @@ export class LuckyExcel {
         const { snapshot, fileName = `csv_${(new Date).getTime()}.csv`, getBuffer = false, success, error, sheetName } = params;
         try {
             const csv = new CSV(snapshot);
-            // console.log(csv);
+            console.log(csv);
 
             let contents: string | { [key: string]: string };
             if (sheetName) {

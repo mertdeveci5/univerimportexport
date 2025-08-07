@@ -97,12 +97,12 @@ export const handleStyle = (
         // bbl: , // bottomBorerLine
         bd: border, // border
         bg: v.bg !== undefined ? { rgb: v.bg, th: ThemeColorType.DARK1 } : undefined, // background
-        bl: v.bl, // bold 0: false 1: true
+        bl: v.bl === 1 ? BooleanNumber.TRUE : v.bl === 0 ? BooleanNumber.FALSE : undefined, // bold 0: false 1: true
         cl: v.fc !== undefined ? { rgb: v.fc, th: ThemeColorType.DARK1 } : undefined, // foreground
         ff: v.ff, // fontFamily
         fs: v.fs, // fontSize
         ht: v.ht !== undefined ? htMap[v.ht] : undefined, // horizontalAlignment
-        it: v.it, // italic 0: false 1: true
+        it: v.it === 1 ? BooleanNumber.TRUE : v.it === 0 ? BooleanNumber.FALSE : undefined, // italic 0: false 1: true
         n: v.ct?.fa !== undefined ? { pattern: v.ct.fa } : undefined, //Numfmt pattern
         // ol: { s: v.cl === 0 ? BooleanNumber.TRUE : BooleanNumber.FALSE}, // overline
         // pd: , // padding

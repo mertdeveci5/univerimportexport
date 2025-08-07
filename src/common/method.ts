@@ -638,7 +638,7 @@ export class fromulaRef {
             else if (orient == "l" && !freezonFuc[1]) {
                 col -= step;
             } 
-            else if (orient == "d" && !freezonFuc[0]) {
+            else if (!freezonFuc[0]) {
                 row += step;
             }
 
@@ -1157,31 +1157,20 @@ export function getMultiFormulaValue(value: string): string[] {
 
 
 export function isfreezonFuc(txt:string) {
-    // Match Excel cell reference pattern with optional $ signs
-    // Examples: A1, $A1, A$1, $A$1
-    const match = txt.match(/^(\$?)([A-Za-z]+)(\$?)([0-9]+)$/);
-    if (!match) {
-        // Fallback to old logic for non-standard patterns
-        let row = txt.replace(/[^0-9]/g, "");
-        let col = txt.replace(/[^A-Za-z]/g, "");
-        let row$ = txt.substr(txt.indexOf(row) - 1, 1);
-        let col$ = txt.substr(txt.indexOf(col) - 1, 1);
-        let ret = [false, false];
+    let row = txt.replace(/[^0-9]/g, "");
+    let col = txt.replace(/[^A-Za-z]/g, "");
+    let row$ = txt.substr(txt.indexOf(row) - 1, 1);
+    let col$ = txt.substr(txt.indexOf(col) - 1, 1);
+    let ret = [false, false];
 
-        if (row$ == "$") {
-            ret[0] = true;
-        }
-        if (col$ == "$") {
-            ret[1] = true;
-        }
-
-        return ret;
+    if (row$ == "$") {
+        ret[0] = true;
     }
-    
-    const colHasDollar = match[1] === "$";  // $ before column letter
-    const rowHasDollar = match[3] === "$";  // $ before row number
-    
-    return [rowHasDollar, colHasDollar];
+    if (col$ == "$") {
+        ret[1] = true;
+    }
+
+    return ret;
 }
 export function ABCToNumber(a: string) {
     if (a == null || a.length === 0) {
