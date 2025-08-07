@@ -42,13 +42,27 @@ export class UniverWorkBook implements IWorkbookData {
         const workSheets: Sheets = {},
             order: string[] = [],
             sheetsObj: LuckySheetObj = {};
+        console.log('🔍 [DEBUG] Processing sheets before sort:', sheets.map(s => ({
+            name: s.name, 
+            order: s.order,
+            hasCellData: !!(s.celldata && s.celldata.length > 0),
+            cellCount: s.celldata ? s.celldata.length : 0
+        })));
+        
         sheets
             .sort((a, b) => Number(a.order) - Number(b.order))
             .forEach((d) => {
+                console.log('🔍 [DEBUG] Creating UniverSheet for:', {
+                    name: d.name,
+                    order: d.order,
+                    hasCellData: !!(d.celldata && d.celldata.length > 0),
+                    cellCount: d.celldata ? d.celldata.length : 0
+                });
                 const sheet = new UniverSheet(d);
                 workSheets[sheet.id] = sheet.mode;
                 sheetsObj[sheet.id] = d;
                 order.push(sheet.id);
+                console.log('✅ [DEBUG] Sheet created with ID:', sheet.id, 'name:', sheet.name);
             });
 
         // console.log(workSheets,sheets)
