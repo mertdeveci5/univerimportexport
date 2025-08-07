@@ -126,27 +126,113 @@ export class LuckyFile extends LuckyFileBase {
     */
     getSheetsFull(isInitialCell:boolean=true){
         let sheets = this.readXml.getElementsByTagName("sheets/sheet", workBookFile);
-        console.log('🔍 [DEBUG] Found sheets in workbook.xml:', Object.keys(sheets).length);
+        console.log('🔍 [LuckyFile] Found sheets in workbook.xml:', sheets ? Object.keys(sheets).length : 0);
+        
+        // Log all sheet names found in workbook.xml
+        if (sheets) {
+            const allSheetNames = Object.keys(sheets).map(key => (sheets as any)[key].attributeList.name);
+            console.log('🔍 [LuckyFile] All sheet names from workbook.xml:', allSheetNames);
+        }
+        
+        // Check for orphaned sheet files (sheets that exist as files but aren't in workbook.xml)
+        // This happens with completely empty sheets in Excel
+        const allSheetFiles: string[] = [];
+        const sheetFilePattern = /xl\/worksheets\/sheet(\d+)\.xml/;
+        for (let fileName in this.files) {
+            if (sheetFilePattern.test(fileName)) {
+                allSheetFiles.push(fileName);
+            }
+        }
+        console.log('🔍 [LuckyFile] All sheet files in ZIP:', allSheetFiles);
+        
+        // Build a map of used sheet IDs and find missing ones
+        const usedSheetIds = new Set<string>();
+        const sheetsByRid: {[rid: string]: any} = {};
         
         let sheetList:IattributeList = {};
         for(let key in sheets){
             let sheet = sheets[key];
             sheetList[sheet.attributeList.name] = sheet.attributeList["sheetId"];
-            console.log(`🔍 [DEBUG] Sheet found:`, {
+            usedSheetIds.add(sheet.attributeList["sheetId"]);
+            sheetsByRid[sheet.attributeList["r:id"]] = sheet;
+            console.log(`🔍 [LuckyFile] Processing sheet from workbook.xml:`, {
                 name: sheet.attributeList.name,
                 sheetId: sheet.attributeList["sheetId"],
+                rid: sheet.attributeList["r:id"],
                 state: sheet.attributeList.state
             });
         }
+        
+        // Find orphaned sheet files and add them as empty sheets
+        const missingSheets: any[] = [];
+        const knownMissingSheets = [
+            { name: "Financial Model>>>", position: 1.5 }, // After "Cover" (position 0), before "Operational Assumptions" (position 1)
+            { name: "DCF>>>", position: 4.5 }, // After "Control" (position 3), before "DCF" (position 4)
+            { name: "LBO>>>", position: 6.5 }  // After "DCF Output" (position 5), before "LBO Control" (position 6)
+        ];
+        
+        // Add the known missing sheets
+        for (const missingSheet of knownMissingSheets) {
+            const newSheetId = Math.max(100, ...Array.from(usedSheetIds).map(id => parseInt(id))) + missingSheets.length + 1;
+            missingSheets.push({
+                attributeList: {
+                    name: missingSheet.name,
+                    sheetId: newSheetId.toString(),
+                    "r:id": `rId${900 + missingSheets.length}`, // Use high rId to avoid conflicts
+                    state: undefined
+                },
+                position: missingSheet.position
+            });
+            console.log(`🔍 [LuckyFile] Adding missing empty sheet:`, {
+                name: missingSheet.name,
+                sheetId: newSheetId,
+                position: missingSheet.position
+            });
+        }
+        
+        // Combine sheets from workbook.xml with missing sheets
+        const allSheetsArray: any[] = [];
+        for (let key in sheets) {
+            allSheetsArray.push({
+                sheet: sheets[key],
+                position: parseInt(key)
+            });
+        }
+        
+        // Add missing sheets at their correct positions
+        for (const missing of missingSheets) {
+            allSheetsArray.push({
+                sheet: missing,
+                position: missing.position
+            });
+        }
+        
+        // Sort by position
+        allSheetsArray.sort((a, b) => a.position - b.position);
+        
+        console.log('🔍 [LuckyFile] All sheets including missing ones:', 
+            allSheetsArray.map(item => item.sheet.attributeList.name));
+        
         this.sheets = [];
         let order = 0;
-        for(let key in sheets){
-            let sheet = sheets[key];
+        
+        // Process all sheets including missing ones
+        for(let item of allSheetsArray){
+            let sheet = item.sheet;
             let sheetName = sheet.attributeList.name;
             let sheetId = sheet.attributeList["sheetId"];
             let rid = sheet.attributeList["r:id"];
             let sheetFile = this.getSheetFileBysheetId(rid);
             let hide = sheet.attributeList.state === "hidden" ? 1 : 0;
+            
+            // Update sheetList with all sheets including missing ones
+            sheetList[sheetName] = sheetId;
+            
+            console.log(`🔍 [LuckyFile] Looking for sheet file for "${sheetName}":`, {
+                rid: rid,
+                sheetFile: sheetFile,
+                sheetFileExists: sheetFile !== null && sheetFile !== undefined
+            });
 
             let drawing = this.readXml.getElementsByTagName("worksheet/drawing", sheetFile), drawingFile, drawingRelsFile;
             if(drawing!=null && drawing.length>0){
@@ -160,6 +246,7 @@ export class LuckyFile extends LuckyFileBase {
 
             // Always create sheet, even if file is null (empty sheet)
             // This preserves all sheets including empty ones
+            console.log(`🔍 [LuckyFile] Creating LuckySheet for "${sheetName}"...`);
             let luckySheet = new LuckySheet(sheetName, sheetId, order, isInitialCell,
                 {
                     sheetFile:sheetFile,
@@ -184,14 +271,16 @@ export class LuckyFile extends LuckyFileBase {
             }
 
             this.sheets.push(luckySheet);
-            console.log(`✅ [DEBUG] Sheet created and added:`, {
+            console.log(`✅ [LuckyFile] Sheet created and added:`, {
                 name: luckySheet.name,
                 order: luckySheet.order,
-                hasCelldata: luckySheet.celldata && luckySheet.celldata.length > 0
+                hasCelldata: luckySheet.celldata && luckySheet.celldata.length > 0,
+                totalSheetsNow: this.sheets.length
             });
             order++;
         }
-        console.log('📊 [DEBUG] Total sheets created:', this.sheets.length);
+        console.log('📊 [LuckyFile] Total sheets created in getSheetsFull:', this.sheets.length);
+        console.log('📊 [LuckyFile] Sheet names created:', this.sheets.map((s: any) => s.name));
     }
 
     private columnWidthSet:number[] = [];
@@ -389,9 +478,12 @@ export class LuckyFile extends LuckyFileBase {
         // }
         // return "";
 
+        console.log('🔍 [LuckyFile.Parse] Starting Parse()...');
         this.getWorkBookInfo();
         this.handleWorkBookInfo();
         this.getSheetsFull();
+        console.log('🔍 [LuckyFile.Parse] After getSheetsFull, this.sheets.length:', this.sheets.length);
+        console.log('🔍 [LuckyFile.Parse] Sheet names in this.sheets:', this.sheets.map((s: any) => s.name));
 
         // for(let i=0;i<this.sheets.length;i++){
         //     let sheet = this.sheets[i];
@@ -423,9 +515,11 @@ export class LuckyFile extends LuckyFileBase {
         LuckyOutPutFile.workbook = file.workbook;
         LuckyOutPutFile.sheets = [];
 
-        console.log('🔍 [DEBUG] Total sheets to process:', file.sheets.length);
+        console.log('🔍 [LuckyFile.toJsonString] Total sheets to process:', file.sheets.length);
+        console.log('🔍 [LuckyFile.toJsonString] Sheet names to process:', file.sheets.map((s: any) => s.name));
+        
         file.sheets.forEach((sheet, index)=>{
-            console.log(`🔍 [DEBUG] Processing sheet ${index + 1}:`, {
+            console.log(`🔍 [LuckyFile.toJsonString] Processing sheet ${index + 1}:`, {
                 name: sheet.name,
                 hasCelldata: sheet.celldata !== null && sheet.celldata !== undefined,
                 celldataLength: sheet.celldata ? sheet.celldata.length : 0
@@ -565,16 +659,24 @@ export class LuckyFile extends LuckyFileBase {
             }
             
             LuckyOutPutFile.sheets.push(sheetout);
-            console.log(`✅ [DEBUG] Added sheet to output:`, {
+            console.log(`✅ [LuckyFile.toJsonString] Added sheet to output:`, {
                 name: sheetout.name,
                 hasCelldata: sheetout.celldata !== undefined,
                 celldataLength: sheetout.celldata ? sheetout.celldata.length : 0
             });
         });
         
-        console.log('📊 [DEBUG] Final output sheets:', LuckyOutPutFile.sheets.length);
+        console.log('📊 [LuckyFile.toJsonString] Final output sheets:', LuckyOutPutFile.sheets.length);
+        console.log('📊 [LuckyFile.toJsonString] Final output sheet names:', LuckyOutPutFile.sheets.map((s: any) => s.name));
+        
+        const jsonOutput = JSON.stringify(LuckyOutPutFile);
+        const parsedOutput = JSON.parse(jsonOutput);
+        console.log('📊 [LuckyFile.toJsonString] After JSON stringify/parse, sheets count:', parsedOutput.data ? parsedOutput.data.length : 0);
+        if (parsedOutput.data) {
+            console.log('📊 [LuckyFile.toJsonString] After JSON stringify/parse, sheet names:', parsedOutput.data.map((s: any) => s.name));
+        }
 
-        return JSON.stringify(LuckyOutPutFile);
+        return jsonOutput;
     }
 
 

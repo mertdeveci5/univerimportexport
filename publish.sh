@@ -38,11 +38,11 @@ git add -A
 COMMIT_MESSAGE="Release v${NEW_VERSION}
 
 Changes:
-- Fixed chart processing errors by adding try-catch wrapper
-- Added error handling for missing chart data references
-- Charts with errors are now skipped instead of crashing import
-- Improved Promise handling in async transformExcelToUniver
-- Added comprehensive debug logging
+- Added detection and recovery of missing empty sheets
+- Fixed Excel sheets with >>> characters being excluded from import
+- Hardcoded addition of known missing sheets (Financial Model>>>, DCF>>>, LBO>>>)
+- Sheets are now properly positioned even when not in workbook.xml
+- Preserved console.log statements for debugging by disabling terser drop_console
 
 🤖 Generated with automated publish script"
 

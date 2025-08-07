@@ -106,10 +106,21 @@ export class LuckyExcel {
                         console.log('📦 [PACKAGE] Parsing JSON output...');
                         let exportJson = JSON.parse(luckysheetfile);
                         
-                        console.log('📦 [PACKAGE] Parsed data:', {
-                            sheets: exportJson?.data?.length || 0,
+                        console.log('📦 [PACKAGE] Parsed exportJson structure:', {
+                            hasData: !!exportJson?.data,
+                            hasSheets: !!exportJson?.sheets,
+                            dataLength: exportJson?.data?.length || 0,
+                            sheetsLength: exportJson?.sheets?.length || 0,
+                            topLevelKeys: Object.keys(exportJson || {}),
                             elapsed: `${Date.now() - startTime}ms`
                         });
+                        
+                        if (exportJson?.data) {
+                            console.log('📦 [PACKAGE] Sheets in data property:', exportJson.data.map((s: any) => s.name));
+                        }
+                        if (exportJson?.sheets) {
+                            console.log('📦 [PACKAGE] Sheets in sheets property:', exportJson.sheets.map((s: any) => s.name));
+                        }
                         
                         if (callback != undefined) {
                             console.log('📦 [PACKAGE] Creating UniverWorkBook...');

@@ -33,7 +33,23 @@ export class UniverWorkBook implements IWorkbookData {
     sheets!: Sheets;
     resources?: IResources | undefined = [];
     constructor(file: ILuckyFile) {
-        const { info, sheets, workbook } = file;
+        console.log('🔍 [UniverWorkBook] Constructor called with file:', {
+            hasInfo: !!file.info,
+            hasSheets: !!file.sheets,
+            hasData: !!(file as any).data,
+            hasWorkbook: !!file.workbook,
+            fileKeys: Object.keys(file)
+        });
+        
+        // Handle both 'sheets' and 'data' properties for backwards compatibility
+        const sheets = file.sheets || (file as any).data || [];
+        const { info, workbook } = file;
+        
+        console.log('🔍 [UniverWorkBook] Sheets extracted:', {
+            sheetsCount: sheets.length,
+            sheetNames: sheets.map((s: IluckySheet) => s.name)
+        });
+        
         this.id = generateRandomId(6);
         this.name = info.name;
         this.appVersion = info.appversion;
@@ -42,7 +58,7 @@ export class UniverWorkBook implements IWorkbookData {
         const workSheets: Sheets = {},
             order: string[] = [],
             sheetsObj: LuckySheetObj = {};
-        console.log('🔍 [DEBUG] Processing sheets before sort:', sheets.map(s => ({
+        console.log('🔍 [UniverWorkBook] Processing sheets before sort:', sheets.map((s: IluckySheet) => ({
             name: s.name, 
             order: s.order,
             hasCellData: !!(s.celldata && s.celldata.length > 0),
@@ -50,8 +66,8 @@ export class UniverWorkBook implements IWorkbookData {
         })));
         
         sheets
-            .sort((a, b) => Number(a.order) - Number(b.order))
-            .forEach((d) => {
+            .sort((a: IluckySheet, b: IluckySheet) => Number(a.order) - Number(b.order))
+            .forEach((d: IluckySheet) => {
                 console.log('🔍 [DEBUG] Creating UniverSheet for:', {
                     name: d.name,
                     order: d.order,
