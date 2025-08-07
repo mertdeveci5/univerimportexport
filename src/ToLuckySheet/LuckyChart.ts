@@ -167,59 +167,92 @@ export class ChartImageGroup {
     }
 
     private getChartRange = (chartEl: Element | ChartGroup[]) => {
-        let maxColumn = 0, maxRow = 0, minColumn = 0, minRow = 0;
-        if (Array.isArray(chartEl)) {
-            const rangeNumArray = chartEl.map(d => {
-                return this.getChartRef(d.chartEle.value);
-            })
-            rangeNumArray.forEach((d, index) => {
-                if (index === 0) {
-                    maxColumn = d.maxColumn;
-                    maxRow = d.maxRow;
-                    minColumn = d.minColumn;
-                    minRow = d.minRow;
-                } else {
-                    maxColumn = Math.max(maxColumn, d.maxColumn);
-                    maxRow = Math.max(maxRow, d.maxRow);
-                    minColumn = Math.min(minColumn, d.minColumn);
-                    minRow = Math.min(minRow, d.minRow);
-                }
-            })
-        } else {
-            const rangeNum = this.getChartRef(chartEl.value);
-            maxColumn = rangeNum.maxColumn;
-            maxRow = rangeNum.maxRow;
-            minColumn = rangeNum.minColumn;
-            minRow = rangeNum.minRow;
+        try {
+            let maxColumn = 0, maxRow = 0, minColumn = 0, minRow = 0;
+            if (Array.isArray(chartEl)) {
+                const rangeNumArray = chartEl.map(d => {
+                    return this.getChartRef(d.chartEle.value);
+                })
+                rangeNumArray.forEach((d, index) => {
+                    if (index === 0) {
+                        maxColumn = d.maxColumn;
+                        maxRow = d.maxRow;
+                        minColumn = d.minColumn;
+                        minRow = d.minRow;
+                    } else {
+                        maxColumn = Math.max(maxColumn, d.maxColumn);
+                        maxRow = Math.max(maxRow, d.maxRow);
+                        minColumn = Math.min(minColumn, d.minColumn);
+                        minRow = Math.min(minRow, d.minRow);
+                    }
+                })
+            } else {
+                const rangeNum = this.getChartRef(chartEl.value);
+                maxColumn = rangeNum.maxColumn;
+                maxRow = rangeNum.maxRow;
+                minColumn = rangeNum.minColumn;
+                minRow = rangeNum.minRow;
+            }
+            
+            const maxRef = numberToABC(maxColumn) + (maxRow + 1);
+            const minRef = numberToABC(minColumn) + (minRow + 1);
+            return minRef + ':' + maxRef;
+        } catch (error) {
+            console.error('Error getting chart range:', error);
+            // Return a default range if parsing fails
+            return 'A1:B2';
         }
-        
-        const maxRef = numberToABC(maxColumn) + (maxRow + 1);
-        const minRef = numberToABC(minColumn) + (minRow + 1);
-        return minRef + ':' + maxRef;
     }
 
     private getChartRef = (chart: string) => {
-        const catNumRef = this.readXml.getElementsByTagName('c:ser/c:cat/c:numRef/c:f', chart, false)?.[0];
-        const catStrRef = this.readXml.getElementsByTagName('c:ser/c:cat/c:strRef/c:f', chart, false)?.[0];
-        const cXvalStrRef = this.readXml.getElementsByTagName('c:ser/c:xVal/c:strRef/c:f', chart, false)?.[0];
-        const cXvalNumRef = this.readXml.getElementsByTagName('c:ser/c:xVal/c:numRef/c:f', chart, false)?.[0];
+        try {
+            const catNumRef = this.readXml.getElementsByTagName('c:ser/c:cat/c:numRef/c:f', chart, false)?.[0];
+            const catStrRef = this.readXml.getElementsByTagName('c:ser/c:cat/c:strRef/c:f', chart, false)?.[0];
+            const cXvalStrRef = this.readXml.getElementsByTagName('c:ser/c:xVal/c:strRef/c:f', chart, false)?.[0];
+            const cXvalNumRef = this.readXml.getElementsByTagName('c:ser/c:xVal/c:numRef/c:f', chart, false)?.[0];
 
-        const catRef = catNumRef || catStrRef || cXvalStrRef || cXvalNumRef;
+            const catRef = catNumRef || catStrRef || cXvalStrRef || cXvalNumRef;
 
-        const strRef = this.readXml.getElementsByTagName('c:ser/c:tx/c:strRef/c:f', chart, false);
-        const x = catRef, y = strRef[strRef.length - 1]
+            const strRef = this.readXml.getElementsByTagName('c:ser/c:tx/c:strRef/c:f', chart, false);
+            const valRef = this.readXml.getElementsByTagName('c:ser/c:val/c:numRef/c:f', chart, false);
+            
+            // Try to get y from strRef or valRef
+            const y = strRef?.[strRef.length - 1] || valRef?.[valRef.length - 1];
+            const x = catRef;
 
-        const xRange = getcellrange(x.value), yRange = getcellrange(y.value);
+            // If we don't have both x and y, return a default range
+            if (!x || !y || !x.value || !y.value) {
+                console.warn('Chart missing data references, using default range');
+                return {
+                    maxColumn: 1,
+                    maxRow: 1,
+                    minColumn: 0,
+                    minRow: 0
+                };
+            }
 
-        const column = [...xRange.column, ...yRange.column];
-        const row = [...xRange.row, ...yRange.row];
-        const maxColumn = Math.max(...column), maxRow = Math.max(...row);
-        const minColumn = Math.min(...column), minRow = Math.min(...row);
-        return {
-            maxColumn,
-            maxRow,
-            minColumn,
-            minRow
+            const xRange = getcellrange(x.value);
+            const yRange = getcellrange(y.value);
+
+            const column = [...xRange.column, ...yRange.column];
+            const row = [...xRange.row, ...yRange.row];
+            const maxColumn = Math.max(...column), maxRow = Math.max(...row);
+            const minColumn = Math.min(...column), minRow = Math.min(...row);
+            return {
+                maxColumn,
+                maxRow,
+                minColumn,
+                minRow
+            };
+        } catch (error) {
+            console.error('Error parsing chart references:', error);
+            // Return a default range if parsing fails
+            return {
+                maxColumn: 1,
+                maxRow: 1,
+                minColumn: 0,
+                minRow: 0
+            };
         }
     }
 }
