@@ -23,9 +23,8 @@ class xmloperation {
             readTagReg = new RegExp(tagsRegTxt, "g");
         }
         else{
-            // Fixed regex to properly handle attributes with > characters in quoted values
-            // This now correctly matches tags where attribute values contain >
-            // Example: <sheet name="DCF>>>" sheetId="5" r:id="rId5"/>
+            // Fixed to handle attributes with > characters in quoted values (e.g., name="DCF>>>")
+            // Uses a more sophisticated pattern that properly handles quoted attribute values
             readTagReg = new RegExp("<"+ tag +"(?:\\s+(?:[^>\"']|\"[^\"]*\"|'[^']*')*)?(?:>[\\s\\S]*?</"+ tag +">|/>)", "g");
         }
         
@@ -146,7 +145,8 @@ export class Element extends xmloperation {
         super();
         this.elementString = str;
         this.setValue();
-        const readAttrReg = new RegExp('[a-zA-Z0-9_:]*?=".*?"', "g");
+        // Updated regex to properly handle quotes that may contain special characters like >
+        const readAttrReg = new RegExp('[a-zA-Z0-9_:]+="[^"]*"', "g");
         let attrList = this.container.match(readAttrReg);
         this.attributeList = {};
         if(attrList!=null){
@@ -219,17 +219,12 @@ export class Element extends xmloperation {
         }
         else{
             let firstTag = this.getFirstTag();
-            const firstTagReg = new RegExp("(<"+ firstTag +" [^>]+?[^/]>)([\\s\\S]*?)</"+ firstTag +">|(<"+ firstTag +">)([\\s\\S]*?)</"+ firstTag +">", "g");
+            // Fixed regex to handle attributes with > characters in quoted values
+            const firstTagReg = new RegExp("(<"+ firstTag +"(?:\\s+(?:[^>\"']|\"[^\"]*\"|'[^']*')*)?>)([\\s\\S]*?)</"+ firstTag +">", "g");
             let result = firstTagReg.exec(str);
             if (result != null) {
-                if(result[1]!=null){
-                    this.container = result[1];
-                    this.value = result[2];
-                }
-                else{
-                    this.container = result[3];
-                    this.value = result[4];
-                }
+                this.container = result[1];
+                this.value = result[2] || "";
             }
         }
     }

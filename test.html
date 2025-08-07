@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Excel Import</title>
+</head>
+<body>
+    <h1>Test Excel Import</h1>
+    <input type="file" id="fileInput" accept=".xlsx,.xls">
+    <div id="results"></div>
+    
+    <script src="dist/luckyexcel.umd.js"></script>
+    <script>
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            console.log('Testing file:', file.name);
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = 'Processing...';
+            
+            LuckyExcel.transformExcelToUniver(
+                file,
+                function(result) {
+                    console.log('Success!', result);
+                    if (result && result.sheets) {
+                        const sheets = Object.values(result.sheets);
+                        resultsDiv.innerHTML = `
+                            <h2>Import Successful!</h2>
+                            <p>Found ${sheets.length} sheets:</p>
+                            <ul>
+                                ${sheets.map(sheet => `<li>${sheet.name}</li>`).join('')}
+                            </ul>
+                        `;
+                    }
+                },
+                function(error) {
+                    console.error('Error:', error);
+                    resultsDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+                }
+            );
+        });
+    </script>
+</body>
+</html>
