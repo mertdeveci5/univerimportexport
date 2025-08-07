@@ -128,8 +128,11 @@ export class UniverSheet extends UniverSheetBase {
 
             if (Number.isNaN(Number(val)) && cellType === CellValueType.NUMBER)
                 cellType = CellValueType.STRING;
-            if (this.hyperLink.findIndex((d) => d.column === row.c && d.row === row.r) > -1)
+            // Check if cell has hyperlink
+            const hyperlinkInfo = this.hyperLink.find((d) => d.column === row.c && d.row === row.r);
+            if (hyperlinkInfo) {
                 cellType = CellValueType.STRING;
+            }
 
             // Handle formulas - preserve formula and calculated value
             const f = v.f?.replace(/=_xlfn./g, '=');
@@ -143,14 +146,22 @@ export class UniverSheet extends UniverSheetBase {
                 t: cellType,
                 v: val, // Always preserve the calculated value
             };
-            const pVal = this.handleDocument(row, config);
-            if (pVal) cell.p = pVal;
+            // Handle hyperlinks first - convert to rich text format
+            if (hyperlinkInfo) {
+                const hyperlinkDoc = this.handleHyperlinkDocument(row, hyperlinkInfo);
+                if (hyperlinkDoc) {
+                    cell.p = hyperlinkDoc;
+                }
+            } else {
+                const pVal = this.handleDocument(row, config);
+                if (pVal) cell.p = pVal;
 
-            const pValImg = this.handleCellImage(row,config);
-            if (pValImg) {
-                cell.p = pValImg;
-                cell.f = undefined;
-                cell.v = undefined;
+                const pValImg = this.handleCellImage(row, config);
+                if (pValImg) {
+                    cell.p = pValImg;
+                    cell.f = undefined;
+                    cell.v = undefined;
+                }
             }
             return removeEmptyAttr(cell);
         };
@@ -283,6 +294,75 @@ export class UniverSheet extends UniverSheetBase {
             };
         }
         return pVlaue;
+    };
+
+    /**
+     * Create rich text document for hyperlink cells
+     * @param row Cell data
+     * @param hyperlinkInfo Hyperlink information 
+     */
+    private handleHyperlinkDocument = (row: IluckySheetCelldata, hyperlinkInfo: HyperLink): Nullable<IDocumentData> => {
+        const { v } = row;
+        let cellText = '';
+        
+        // Get display text - prefer actual cell value over hyperlink address
+        if (typeof v === 'string') {
+            cellText = v;
+        } else if (v && typeof v === 'object' && v.v) {
+            cellText = String(v.v);
+        } else {
+            // Fallback to hyperlink address if no display text
+            cellText = typeof hyperlinkInfo.payload === 'string' 
+                ? hyperlinkInfo.payload 
+                : (hyperlinkInfo.payload?.range || 'Link');
+        }
+
+        if (!cellText) return null;
+
+        const linkText = cellText + '\r\n';
+        const linkId = generateRandomId(6);
+        
+        return {
+            id: generateRandomId(6),
+            documentStyle: {
+                documentFlavor: 0,
+                pageSize: { width: 0, height: 0 },
+                renderConfig: {},
+                textStyle: {},
+            },
+            body: {
+                dataStream: linkText,
+                paragraphs: [{
+                    startIndex: linkText.length - 2, // Before \r\n
+                }],
+                sectionBreaks: [{
+                    startIndex: linkText.length - 1, // Before \n
+                }],
+                textRuns: [{
+                    st: 0,
+                    ed: cellText.length,
+                    ts: {
+                        cl: {
+                            rgb: 'rgb(0, 0, 255)' // Blue color for hyperlinks
+                        },
+                        ul: {
+                            s: 1 // Underline
+                        }
+                    }
+                }],
+                customRanges: [{
+                    startIndex: 0,
+                    endIndex: cellText.length,
+                    rangeId: linkId,
+                    rangeType: 2, // HYPERLINK_RANGE
+                    properties: {
+                        url: typeof hyperlinkInfo.payload === 'string' ? hyperlinkInfo.payload : undefined,
+                        payload: typeof hyperlinkInfo.payload === 'object' ? hyperlinkInfo.payload : undefined
+                    }
+                }]
+            },
+            drawings: {},
+        };
     };
 
     private handleCellImage = (row: IluckySheetCelldata, config: IluckySheetConfig) => {
