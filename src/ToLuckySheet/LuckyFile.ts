@@ -126,10 +126,17 @@ export class LuckyFile extends LuckyFileBase {
     */
     getSheetsFull(isInitialCell:boolean=true){
         let sheets = this.readXml.getElementsByTagName("sheets/sheet", workBookFile);
+        console.log('🔍 [DEBUG] Found sheets in workbook.xml:', Object.keys(sheets).length);
+        
         let sheetList:IattributeList = {};
         for(let key in sheets){
             let sheet = sheets[key];
             sheetList[sheet.attributeList.name] = sheet.attributeList["sheetId"];
+            console.log(`🔍 [DEBUG] Sheet found:`, {
+                name: sheet.attributeList.name,
+                sheetId: sheet.attributeList["sheetId"],
+                state: sheet.attributeList.state
+            });
         }
         this.sheets = [];
         let order = 0;
@@ -177,8 +184,14 @@ export class LuckyFile extends LuckyFileBase {
             }
 
             this.sheets.push(luckySheet);
+            console.log(`✅ [DEBUG] Sheet created and added:`, {
+                name: luckySheet.name,
+                order: luckySheet.order,
+                hasCelldata: luckySheet.celldata && luckySheet.celldata.length > 0
+            });
             order++;
         }
+        console.log('📊 [DEBUG] Total sheets created:', this.sheets.length);
     }
 
     private columnWidthSet:number[] = [];
@@ -410,7 +423,13 @@ export class LuckyFile extends LuckyFileBase {
         LuckyOutPutFile.workbook = file.workbook;
         LuckyOutPutFile.sheets = [];
 
-        file.sheets.forEach((sheet)=>{
+        console.log('🔍 [DEBUG] Total sheets to process:', file.sheets.length);
+        file.sheets.forEach((sheet, index)=>{
+            console.log(`🔍 [DEBUG] Processing sheet ${index + 1}:`, {
+                name: sheet.name,
+                hasCelldata: sheet.celldata !== null && sheet.celldata !== undefined,
+                celldataLength: sheet.celldata ? sheet.celldata.length : 0
+            });
             let sheetout = new LuckySheetBase();
             //let attrName = ["name","color","config","index","status","order","row","column","luckysheet_select_save","scrollLeft","scrollTop","zoomRatio","showGridLines","defaultColWidth","defaultRowHeight","celldata","chart","isPivotTable","pivotTable","luckysheet_conditionformat_save","freezen","calcChain"];
 
@@ -477,9 +496,9 @@ export class LuckyFile extends LuckyFileBase {
                 sheetout.defaultRowHeight = sheet.defaultRowHeight;
             }
 
-            if(sheet.celldata!=null){
-                // sheetout.celldata = sheet.celldata;
-                sheetout.celldata = [];
+            // Always set celldata, even if empty to preserve empty sheets
+            sheetout.celldata = [];
+            if(sheet.celldata!=null && sheet.celldata.length > 0){
                 sheet.celldata.forEach((cell)=>{
                     let cellout = new LuckySheetCelldataBase();
                     cellout.r = cell.r;
@@ -546,7 +565,14 @@ export class LuckyFile extends LuckyFileBase {
             }
             
             LuckyOutPutFile.sheets.push(sheetout);
+            console.log(`✅ [DEBUG] Added sheet to output:`, {
+                name: sheetout.name,
+                hasCelldata: sheetout.celldata !== undefined,
+                celldataLength: sheetout.celldata ? sheetout.celldata.length : 0
+            });
         });
+        
+        console.log('📊 [DEBUG] Final output sheets:', LuckyOutPutFile.sheets.length);
 
         return JSON.stringify(LuckyOutPutFile);
     }
