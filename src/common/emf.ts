@@ -1,3 +1,5 @@
+import { debug } from "../utils/debug";
+
 export let UDOC:any = {};
 	
 	UDOC.G = {
@@ -256,7 +258,7 @@ export let FromEMF:any = function()
 FromEMF.Parse = function(buff:any, genv:any)
 {
     buff = new Uint8Array(buff);  var off=0;
-    //console.log(buff.slice(0,32));
+    //debug.log(buff.slice(0,32));
     var prms:any = {fill:false, strk:false, bb:[0,0,1,1], wbb:[0,0,1,1], fnt:{nam:"Arial",hgh:25,und:false,orn:0}, tclr:[0,0,0], talg:0}, gst, tab = [], sts=[];
     
     var rI = FromEMF.B.readShort, rU = FromEMF.B.readUshort, rI32 = FromEMF.B.readInt, rU32 = FromEMF.B.readUint, rF32 = FromEMF.B.readFloat;	
@@ -268,18 +270,18 @@ FromEMF.Parse = function(buff:any, genv:any)
         var siz = rU32(buff, off);  off+=4;
         
         //if(gst && isNaN(gst.ctm[0])) throw "e";
-        //console.log(fnc,fnm,siz);
+        //debug.log(fnc,fnm,siz);
         
         var loff = off;
         
         //if(opn++==253) break;
         var obj:any = null, oid = 0;
-        //console.log(fnm, siz);
+        //debug.log(fnm, siz);
         
         if(false) {}
         else if(fnm=="EOF") {  break;  }
         else if(fnm=="HEADER") {
-            prms.bb = FromEMF._readBox(buff,loff);   loff+=16;  //console.log(fnm, prms.bb);
+            prms.bb = FromEMF._readBox(buff,loff);   loff+=16;  //debug.log(fnm, prms.bb);
             genv.StartPage(prms.bb[0],prms.bb[1],prms.bb[2],prms.bb[3]);
             gst = UDOC.getState(prms.bb);	
         }
@@ -291,7 +293,7 @@ FromEMF.Parse = function(buff:any, genv:any)
         }
         else if(fnm=="SELECTCLIPPATH") {  gst.cpth = JSON.parse(JSON.stringify(gst.pth));  }
         else if(["SETMAPMODE","SETPOLYFILLMODE","SETBKMODE"/*,"SETVIEWPORTEXTEX"*/,"SETICMMODE","SETROP2","EXTSELECTCLIPRGN"].indexOf(fnm)!=-1) {}
-        //else if(fnm=="INTERSECTCLIPRECT") {  var r=prms.crct=FromEMF._readBox(buff, loff);  /*var y0=r[1],y1=r[3]; if(y0>y1){r[1]=y1; r[3]=y0;}*/ console.log(prms.crct);  }
+        //else if(fnm=="INTERSECTCLIPRECT") {  var r=prms.crct=FromEMF._readBox(buff, loff);  /*var y0=r[1],y1=r[3]; if(y0>y1){r[1]=y1; r[3]=y0;}*/ debug.log(prms.crct);  }
         else if(fnm=="SETMITERLIMIT") gst.mlimit = rU32(buff, loff);
         else if(fnm=="SETTEXTCOLOR") prms.tclr = [buff[loff]/255, buff[loff+1]/255, buff[loff+2]/255]; 
         else if(fnm=="SETTEXTALIGN") prms.talg = rU32(buff, loff);
@@ -300,7 +302,7 @@ FromEMF.Parse = function(buff:any, genv:any)
             var coff = fnm=="SETVIEWPORTORGEX" ? 0 : 2;
             prms.vbb[coff  ] = rI32(buff, loff);  loff+=4;
             prms.vbb[coff+1] = rI32(buff, loff);  loff+=4;
-            //console.log(prms.vbb);
+            //debug.log(prms.vbb);
             if(fnm=="SETVIEWPORTEXTEX") FromEMF._updateCtm(prms, gst);
         }
         else if(fnm=="SETWINDOWEXTEX" || fnm=="SETWINDOWORGEX") {
@@ -314,7 +316,7 @@ FromEMF.Parse = function(buff:any, genv:any)
         
         else if(fnm=="SELECTOBJECT") {
             var ind = rU32(buff, loff);  loff+=4;
-            //console.log(ind.toString(16), tab, tab[ind]);
+            //debug.log(ind.toString(16), tab, tab[ind]);
             if     (ind==0x80000000) {  prms.fill=true ;  gst.colr=[1,1,1];  } // white brush
             else if(ind==0x80000005) {  prms.fill=false;  } // null brush
             else if(ind==0x80000007) {  prms.strk=true ;  prms.lwidth=1;  gst.COLR=[0,0,0];  } // black pen
@@ -322,7 +324,7 @@ FromEMF.Parse = function(buff:any, genv:any)
             else if(ind==0x8000000d) {} // system font
             else if(ind==0x8000000e) {}  // device default font
             else {
-                var co:any = tab[ind];  //console.log(ind, co);
+                var co:any = tab[ind];  //debug.log(ind, co);
                 if(co.t=="b") {
                     prms.fill=co.stl!=1;
                     if     (co.stl==0) {}
@@ -355,7 +357,7 @@ FromEMF.Parse = function(buff:any, genv:any)
             obj.stl = rU32(buff, loff);  loff+=4;
             obj.clr = [buff[loff]/255, buff[loff+1]/255, buff[loff+2]/255];  loff+=4;
             obj.htc = rU32(buff, loff);  loff+=4;
-            //console.log(oid, obj);
+            //debug.log(oid, obj);
         }
         else if(fnm=="CREATEPEN" || fnm=="EXTCREATEPEN") {
             oid = rU32(buff, loff);  loff+=4;
@@ -378,28 +380,28 @@ FromEMF.Parse = function(buff:any, genv:any)
             obj.hgh = rI32(buff, loff);  loff += 4;
             loff += 4*2;
             obj.orn = rI32(buff, loff)/10;  loff+=4;
-            var wgh = rU32(buff, loff);  loff+=4;  //console.log(fnm, obj.orn, wgh);
-            //console.log(rU32(buff,loff), rU32(buff,loff+4), buff.slice(loff,loff+8));
+            var wgh = rU32(buff, loff);  loff+=4;  //debug.log(fnm, obj.orn, wgh);
+            //debug.log(rU32(buff,loff), rU32(buff,loff+4), buff.slice(loff,loff+8));
             obj.und = buff[loff+1];  obj.stk = buff[loff+2];  loff += 4*2;
             while(rU(buff,loff)!=0) {  obj.nam+=String.fromCharCode(rU(buff,loff));  loff+=2;  }
             if(wgh>500) obj.nam+="-Bold";
-            //console.log(wgh, obj.nam);
+            //debug.log(wgh, obj.nam);
         }
         else if(fnm=="EXTTEXTOUTW") {
-            //console.log(buff.slice(loff-8, loff-8+siz));
+            //debug.log(buff.slice(loff-8, loff-8+siz));
             loff+=16;
-            var mod = rU32(buff, loff);  loff+=4;  //console.log(mod);
+            var mod = rU32(buff, loff);  loff+=4;  //debug.log(mod);
             var scx = rF32(buff, loff);  loff+=4;
             var scy = rF32(buff, loff);  loff+=4;
             var rfx = rI32(buff, loff);  loff+=4;
             var rfy = rI32(buff, loff);  loff+=4;
-            //console.log(mod, scx, scy,rfx,rfy);
+            //debug.log(mod, scx, scy,rfx,rfy);
             
             gst.font.Tm = [1,0,0,-1,0,0];
             UDOC.M.rotate(gst.font.Tm, prms.fnt.orn*Math.PI/180);
             UDOC.M.translate(gst.font.Tm, rfx, rfy);
             
-            var alg = prms.talg;  //console.log(alg.toString(2));
+            var alg = prms.talg;  //debug.log(alg.toString(2));
             if     ((alg&6)==6) gst.font.Tal = 2;
             else if((alg&7)==0) gst.font.Tal = 0;
             else throw alg+" e";
@@ -411,18 +413,18 @@ FromEMF.Parse = function(buff:any, genv:any)
             var crs = rU32(buff, loff);  loff+=4;
             var ofs = rU32(buff, loff);  loff+=4;
             var ops = rU32(buff, loff);  loff+=4;  //if(ops!=0) throw "e";
-            //console.log(ofs,ops,crs);
+            //debug.log(ofs,ops,crs);
             loff+=16;
-            var ofD = rU32(buff, loff);  loff+=4;  //console.log(ops, ofD, loff, ofs+off-8);
-            ofs += off-8;  //console.log(crs, ops);
+            var ofD = rU32(buff, loff);  loff+=4;  //debug.log(ops, ofD, loff, ofs+off-8);
+            ofs += off-8;  //debug.log(crs, ops);
             var str = "";
             for(var i=0; i<crs; i++) {  var cc=rU(buff,ofs+i*2);  str+=String.fromCharCode(cc);  };
             var oclr = gst.colr;  gst.colr = prms.tclr;
-            //console.log(str, gst.colr, gst.font.Tm);
+            //debug.log(str, gst.colr, gst.font.Tm);
             //var otfs = gst.font.Tfs;  gst.font.Tfs *= 1/gst.ctm[0];
             genv.PutText(gst, str, str.length*gst.font.Tfs*0.5);  gst.colr=oclr;
             //gst.font.Tfs = otfs;
-            //console.log(rfx, rfy, scx, ops, rcX, rcY, rcW, rcH, offDx, str);
+            //debug.log(rfx, rfy, scx, ops, rcX, rcY, rcW, rcH, offDx, str);
         }
         else if(fnm=="BEGINPATH") {  UDOC.G.newPath(gst);  }
         else if(fnm=="ENDPATH"  ) {    }
@@ -438,8 +440,8 @@ FromEMF.Parse = function(buff:any, genv:any)
             if(!isTo) UDOC.G.newPath(gst);
             loff = FromEMF._drawPoly(buff,loff,cnt,gst, fnm.endsWith("16")?2:4,  ndf, isTo);
             if(!isTo) FromEMF._draw(genv,gst,prms, ndf);
-            //console.log(prms, gst.lwidth);
-            //console.log(JSON.parse(JSON.stringify(gst.pth)));
+            //debug.log(prms, gst.lwidth);
+            //debug.log(JSON.parse(JSON.stringify(gst.pth)));
         }
         else if(fnm=="POLYPOLYGON16") {
             loff+=16;
@@ -466,7 +468,7 @@ FromEMF.Parse = function(buff:any, genv:any)
                 loff+=6*nl;
                 cnt-=3;
             }
-            //console.log(JSON.parse(JSON.stringify(gst.pth)));
+            //debug.log(JSON.parse(JSON.stringify(gst.pth)));
         }
         else if(fnm=="RECTANGLE" || fnm=="ELLIPSE") {
             UDOC.G.newPath(gst);
@@ -483,7 +485,7 @@ FromEMF.Parse = function(buff:any, genv:any)
             }
             UDOC.G.closePath(gst);
             FromEMF._draw(genv,gst,prms, true);
-            //console.log(prms, gst.lwidth);
+            //debug.log(prms, gst.lwidth);
         }
         else if(fnm=="FILLPATH"  ) genv.Fill(gst, false);
         else if(fnm=="STROKEPATH") genv.Stroke(gst);
@@ -491,7 +493,7 @@ FromEMF.Parse = function(buff:any, genv:any)
         else if(fnm=="SETWORLDTRANSFORM" || fnm=="MODIFYWORLDTRANSFORM") {
             var mat = [];
             for(var i=0; i<6; i++) mat.push(rF32(buff,loff+i*4));  loff+=24;
-            //console.log(fnm, gst.ctm.slice(0), mat);
+            //debug.log(fnm, gst.ctm.slice(0), mat);
             if(fnm=="SETWORLDTRANSFORM") gst.ctm=mat;
             else {
                 var mod = rU32(buff,loff);  loff+=4;
@@ -515,12 +517,12 @@ FromEMF.Parse = function(buff:any, genv:any)
             var usg = rU32(buff, loff);  loff+=4;  if(usg!=0) throw "e";
             var bop = rU32(buff, loff);  loff+=4;
             var wD = rI32(buff, loff);  loff+=4;
-            var hD = rI32(buff, loff);  loff+=4;  //console.log(bop, wD, hD);
+            var hD = rI32(buff, loff);  loff+=4;  //debug.log(bop, wD, hD);
             
-            //console.log(ofH, szH, ofB, szB, ofH+40);
-            //console.log(bx, xD,yD,wD,hD);
-            //console.log(xS,yS,wS,hS);
-            //console.log(ofH,szH,ofB,szB,usg,bop);
+            //debug.log(ofH, szH, ofB, szB, ofH+40);
+            //debug.log(bx, xD,yD,wD,hD);
+            //debug.log(xS,yS,wS,hS);
+            //debug.log(ofH,szH,ofB,szB,usg,bop);
             
             var hl = rU32(buff, ofH);  ofH+=4;
             var w  = rU32(buff, ofH);  ofH+=4;
@@ -532,9 +534,9 @@ FromEMF.Parse = function(buff:any, genv:any)
             var xpm= rU32(buff, ofH);  ofH+=4;
             var ypm= rU32(buff, ofH);  ofH+=4;
             var cu = rU32(buff, ofH);  ofH+=4;
-            var ci = rU32(buff, ofH);  ofH+=4;  //console.log(hl, w, h, ps, bc, cpr, sz, xpm, ypm, cu, ci);
+            var ci = rU32(buff, ofH);  ofH+=4;  //debug.log(hl, w, h, ps, bc, cpr, sz, xpm, ypm, cu, ci);
             
-            //console.log(hl,w,h,",",xS,yS,wS,hS,",",xD,yD,wD,hD,",",xpm,ypm);
+            //debug.log(hl,w,h,",",xS,yS,wS,hS,",",xD,yD,wD,hD,",",xpm,ypm);
             
             var rl = Math.floor(((w * ps * bc + 31) & ~31) / 8);
             var img = new Uint8Array(w*h*4);
@@ -578,7 +580,7 @@ FromEMF.Parse = function(buff:any, genv:any)
             gst.ctm = ctm;
         }
         else {
-            console.log(fnm, siz);
+            debug.log(fnm, siz);
         }
         
         if(obj!=null) tab[oid]=obj;
@@ -809,7 +811,7 @@ ToContext2D.prototype.PutText = function(gst:any, str:any, stw:any) {
     this._setStyle(gst, ctx);
     ctx.save();
     var m = [1,0,0,-1,0,0];  this._concat(m, gst.font.Tm);  this._concat(m, gst.ctm);
-    //console.log(str, m, gst);  throw "e";
+    //debug.log(str, m, gst);  throw "e";
     ctx.transform(m[0],m[1],m[2],m[3],m[4],m[5]);
     ctx.fillText(str,0,0);
     ctx.restore();

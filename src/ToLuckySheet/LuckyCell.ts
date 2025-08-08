@@ -1,4 +1,5 @@
 import { IluckyImageDefault, IluckySheetborderInfoCellForImp } from "./ILuck";
+import { debug } from '../utils/debug';
 import { ReadXml, Element, IStyleCollections, getColor, getlineStringAttr } from "./ReadXml";
 import { getXmlAttibute, getcellrange, escapeCharacter, isChinese, isJapanese, isKoera, getPxByEMUs } from "../common/method";
 import { ST_CellType, cellImagesRels } from "../common/constant"
@@ -93,7 +94,7 @@ export class LuckySheetCelldata extends LuckySheetCelldataBase {
                 this._fomulaRef = ref;
                 this._formulaType = t;
             }
-            // console.log(ref, t, si);
+            // debug.log(ref, t, si);
             if (ref != null || (formulaValue != null && formulaValue.length > 0)) {
                 formulaValue = escapeCharacter(formulaValue);
                 cellValue.f = formulaValue[0] === '=' ? formulaValue : "=" + formulaValue;
@@ -230,7 +231,7 @@ export class LuckySheetCelldata extends LuckySheetCelldataBase {
                 let numf = numfmts[parseInt(numFmtId)];
                 let cellFormat = new LuckySheetCellFormat();
                 cellFormat.fa = escapeCharacter(numf);
-                // console.log(numf, numFmtId, this.v, cellFormat);
+                // debug.log(numf, numFmtId, this.v, cellFormat);
                 cellFormat.t = t || 'd';
                 cellValue.ct = cellFormat;
             }
@@ -238,7 +239,7 @@ export class LuckySheetCelldata extends LuckySheetCelldataBase {
             if (fillId != undefined) {
                 let fillIdNum = parseInt(fillId);
                 let fill = fills[fillIdNum];
-                // console.log(cellValue.v);
+                // debug.log(cellValue.v);
                 let bg = getBackgroundByFill(fill, this.styles);
                 if (bg != null) {
                     cellValue.bg = bg;
@@ -545,7 +546,7 @@ export class LuckySheetCelldata extends LuckySheetCelldataBase {
                             cellFormat.t = "inlineStr";
                             // cellFormat.s = [InlineString];
                             cellValue.ct = cellFormat;
-                            // console.log(cellValue);
+                            // debug.log(cellValue);
                         }
                         else {
 

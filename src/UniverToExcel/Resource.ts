@@ -1,4 +1,5 @@
 import { Anchor, Workbook, Worksheet } from "@zwight/exceljs";
+import { debug } from '../utils/debug';
 import { escapeCharacter, getEmusByPx, getRangetxt, isEmpty, jsonParse, removeEmptyAttr, str2num } from "../common/method";
 import { CFRuleType, CFSubRuleType } from "../ToLuckySheet/LuckyCondition";
 import { hex2argb } from "./util";
@@ -61,7 +62,7 @@ export class Resource {
                 })
             });
         });
-        // console.log(this.worksheet.name, ruleList)
+        // debug.log(this.worksheet.name, ruleList)
         ruleList.forEach(d => {
             this.worksheet.addConditionalFormatting(d);
         });
@@ -123,7 +124,7 @@ export class Resource {
                 errorStyle: styleMap[errorStyle]
             }
             // this.worksheet.dataValidations.add(list.join(' '), removeEmptyAttr(valid))
-            // console.log(this.sheetId, this.worksheet.name, list, valid);
+            // debug.log(this.sheetId, this.worksheet.name, list, valid);
             list.forEach((address: string) => {
                 this.worksheet.dataValidations.add(address, removeEmptyAttr(valid))
             });
@@ -154,7 +155,7 @@ export class Resource {
                     nativeRowOff: getEmusByPx(position.rowOffset),
                 }
             }
-            // console.log(handlePosition(element.sheetTransform.from), handlePosition(element.sheetTransform.to))
+            // debug.log(handlePosition(element.sheetTransform.from), handlePosition(element.sheetTransform.to))
 
             this.worksheet.addImage(imageId, {
                 tl: handlePosition(element.sheetTransform.from) as Anchor,

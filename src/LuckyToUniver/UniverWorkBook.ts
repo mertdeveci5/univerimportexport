@@ -8,6 +8,7 @@ import {
     PresetGeometryType,
 } from '@univerjs/core';
 import { IResources } from '@univerjs/core/lib/types/services/resource-manager/type';
+import { debug } from '../utils/debug';
 import { HyperLink, UniverSheet } from './UniverSheet';
 // import { ISheetDrawing, SheetDrawingAnchorType } from '@univerjs/sheets-drawing';
 import { handleStyle } from './utils';
@@ -33,7 +34,7 @@ export class UniverWorkBook implements IWorkbookData {
     sheets!: Sheets;
     resources?: IResources | undefined = [];
     constructor(file: ILuckyFile) {
-        console.log('🔍 [UniverWorkBook] Constructor called with file:', {
+        debug.log('🔍 [UniverWorkBook] Constructor called with file:', {
             hasInfo: !!file.info,
             hasSheets: !!file.sheets,
             hasData: !!(file as any).data,
@@ -45,7 +46,7 @@ export class UniverWorkBook implements IWorkbookData {
         const sheets = file.sheets || (file as any).data || [];
         const { info, workbook } = file;
         
-        console.log('🔍 [UniverWorkBook] Sheets extracted:', {
+        debug.log('🔍 [UniverWorkBook] Sheets extracted:', {
             sheetsCount: sheets.length,
             sheetNames: sheets.map((s: IluckySheet) => s.name)
         });
@@ -58,7 +59,7 @@ export class UniverWorkBook implements IWorkbookData {
         const workSheets: Sheets = {},
             order: string[] = [],
             sheetsObj: LuckySheetObj = {};
-        console.log('🔍 [UniverWorkBook] Processing sheets before sort:', sheets.map((s: IluckySheet) => ({
+        debug.log('🔍 [UniverWorkBook] Processing sheets before sort:', sheets.map((s: IluckySheet) => ({
             name: s.name, 
             order: s.order,
             hasCellData: !!(s.celldata && s.celldata.length > 0),
@@ -68,7 +69,7 @@ export class UniverWorkBook implements IWorkbookData {
         sheets
             .sort((a: IluckySheet, b: IluckySheet) => Number(a.order) - Number(b.order))
             .forEach((d: IluckySheet) => {
-                console.log('🔍 [DEBUG] Creating UniverSheet for:', {
+                debug.log('🔍 [DEBUG] Creating UniverSheet for:', {
                     name: d.name,
                     order: d.order,
                     hasCellData: !!(d.celldata && d.celldata.length > 0),
@@ -78,10 +79,10 @@ export class UniverWorkBook implements IWorkbookData {
                 workSheets[sheet.id] = sheet.mode;
                 sheetsObj[sheet.id] = d;
                 order.push(sheet.id);
-                console.log('✅ [DEBUG] Sheet created with ID:', sheet.id, 'name:', sheet.name);
+                debug.log('✅ [DEBUG] Sheet created with ID:', sheet.id, 'name:', sheet.name);
             });
 
-        // console.log(workSheets,sheets)
+        // debug.log(workSheets,sheets)
         this.handleHyperLinks(workSheets);
         this.handleImage(workSheets, sheets);
         this.handleChart(workSheets, sheets);
@@ -133,7 +134,7 @@ export class UniverWorkBook implements IWorkbookData {
                 };
             });
         }
-        // console.log(workSheets, hyperLinks)
+        // debug.log(workSheets, hyperLinks)
         this.resources?.push({
             name: 'SHEET_HYPER_LINK_PLUGIN',
             data: JSON.stringify(hyperLinks),
@@ -258,7 +259,7 @@ export class UniverWorkBook implements IWorkbookData {
                 })
             });
         })
-        // console.log('chartList', chartList)
+        // debug.log('chartList', chartList)
         this.resources?.push({
             name: 'SHEET_CHART_PLUGIN',
             data: JSON.stringify(chartList),

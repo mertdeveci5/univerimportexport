@@ -1,4 +1,5 @@
 import { Workbook, Worksheet, WorksheetViewCommon, WorksheetViewFrozen } from "@zwight/exceljs";
+import { debug } from '../utils/debug';
 import { convertSheetIdToName, heightConvert, hex2argb, wdithConvert } from "./util";
 import { cellStyle, fontConvert } from "./CellStyle";
 import { jsonParse, removeEmptyAttr } from "../common/method";
@@ -23,7 +24,7 @@ export class FrozenView implements WorksheetViewFrozen{
 export function ExcelWorkSheet(workbook: Workbook, snapshot: any) {
     const { sheetOrder, sheets, styles, resources } = snapshot;
     if (!sheetOrder || !Array.isArray(sheetOrder)) {
-        console.warn('[ExcelWorkSheet] No sheetOrder found in snapshot');
+        debug.warn('[ExcelWorkSheet] No sheetOrder found in snapshot');
         return;
     }
     sheetOrder.forEach((sheetId: string) => {
@@ -90,7 +91,7 @@ function setCell(worksheet: Worksheet, sheet: any, styles: any, snapshot: any, w
         for (const columnid in row) {
             const cell = row[columnid];
             if (!cell) continue;
-            // console.log(rowid + 1, columnid + 1)
+            // debug.log(rowid + 1, columnid + 1)
             const target = worksheet.getCell(Number(rowid) + 1, Number(columnid) + 1)
 
             const valueFromHandle = handleValue(cell, {
@@ -101,7 +102,7 @@ function setCell(worksheet: Worksheet, sheet: any, styles: any, snapshot: any, w
                 sheets
             }, workbook );
             
-            console.log('[DEBUG] Export - Cell', Number(rowid) + 1, Number(columnid) + 1, 'value from handleValue:', JSON.stringify(valueFromHandle));
+            debug.log('[DEBUG] Export - Cell', Number(rowid) + 1, Number(columnid) + 1, 'value from handleValue:', JSON.stringify(valueFromHandle));
             target.value = valueFromHandle;
             
             // Post-process: Remove @ symbols that ExcelJS adds to named ranges
@@ -127,14 +128,14 @@ function setCell(worksheet: Worksheet, sheet: any, styles: any, snapshot: any, w
                 
                 // Debug log
                 if (originalFormula !== cleanedFormula) {
-                    console.log('[DEBUG] Export - Cleaned @ symbols in formula:', originalFormula, '->', cleanedFormula);
+                    debug.log('[DEBUG] Export - Cleaned @ symbols in formula:', originalFormula, '->', cleanedFormula);
                 }
                 
                 // Create new value object with cleaned formula
                 // IMPORTANT: Also ensure no leading = to prevent double equals issue
                 if (cleanedFormula.startsWith('=')) {
                     cleanedFormula = cleanedFormula.substring(1);
-                    console.log('[DEBUG] Export - Also stripped leading = from @ cleaned formula');
+                    debug.log('[DEBUG] Export - Also stripped leading = from @ cleaned formula');
                 }
                 
                 target.value = {
@@ -149,7 +150,7 @@ function setCell(worksheet: Worksheet, sheet: any, styles: any, snapshot: any, w
             }
             const style = removeEmptyAttr(cellStyle(originStyle, originStyle?.n?.pattern || cell.f))
             Object.assign(target, style)
-            // console.log(target)
+            // debug.log(target)
         }
     }
 }
@@ -229,10 +230,10 @@ function handleValue(cell: any, cellSource: any, workbook: Workbook) {
             if (formula.startsWith('=')) {
                 formula = formula.substring(1);
             }
-            console.log('[DEBUG] Export - Processing shared formula:', cell.si, '->', formula);
+            debug.log('[DEBUG] Export - Processing shared formula:', cell.si, '->', formula);
             value = { formula: formula, result: cell.v }
         } else {
-            console.log('[DEBUG] Export - Skipping invalid shared formula:', cell.si);
+            debug.log('[DEBUG] Export - Skipping invalid shared formula:', cell.si);
             value = cell.v || '';
         }
     } else if (cell.f) {
@@ -241,15 +242,15 @@ function handleValue(cell: any, cellSource: any, workbook: Workbook) {
         if (typeof cell.f === 'string' && !cell.f.includes('#REF!') && !cell.f.includes('#NAME?')) {
             // Fix double equals issue: ExcelJS expects formulas WITHOUT the leading =
             let formula = cell.f;
-            console.log('[DEBUG] Export - Original formula from Univer:', formula);
+            debug.log('[DEBUG] Export - Original formula from Univer:', formula);
             if (formula.startsWith('=')) {
                 formula = formula.substring(1);
-                console.log('[DEBUG] Export - Stripped leading = from formula');
+                debug.log('[DEBUG] Export - Stripped leading = from formula');
             }
-            console.log('[DEBUG] Export - Final formula to ExcelJS:', formula);
+            debug.log('[DEBUG] Export - Final formula to ExcelJS:', formula);
             value = { formula: formula, result: cell.v }
         } else {
-            console.log('[DEBUG] Export - Skipping invalid formula:', cell.f);
+            debug.log('[DEBUG] Export - Skipping invalid formula:', cell.f);
             value = cell.v || '';
         }
     } else {

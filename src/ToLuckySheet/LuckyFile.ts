@@ -7,6 +7,7 @@ import {getXmlAttibute} from "../common/method";
 import { LuckyFileBase,LuckyFileInfo,LuckySheetBase,LuckySheetCelldataBase, WorkBookInfo } from "./LuckyBase";
 import {ImageList} from "./LuckyImage";
 import { LuckyDefineNames } from "./LuckyDefineName";
+import { debug } from "../utils/debug";
 
 export class LuckyFile extends LuckyFileBase {
 
@@ -50,13 +51,13 @@ export class LuckyFile extends LuckyFileBase {
             let attrList = numfmts[i].attributeList;
             let numfmtid = getXmlAttibute(attrList, "numFmtId", "49");
             let formatcode = getXmlAttibute(attrList, "formatCode", "@");
-            // console.log(numfmtid, formatcode);
+            // debug.log(numfmtid, formatcode);
             if(!(numfmtid in numFmtDefault)){
                 numFmtDefaultC[numfmtid] = numFmtDefaultMap[formatcode] || formatcode;
             }
         }
 
-        // console.log(JSON.stringify(numFmtDefaultC), numfmts);
+        // debug.log(JSON.stringify(numFmtDefaultC), numfmts);
         this.styles["numfmts"] =  numFmtDefaultC;
     }
 
@@ -126,12 +127,12 @@ export class LuckyFile extends LuckyFileBase {
     */
     getSheetsFull(isInitialCell:boolean=true){
         let sheets = this.readXml.getElementsByTagName("sheets/sheet", workBookFile);
-        console.log('🔍 [LuckyFile] Found sheets in workbook.xml:', sheets ? Object.keys(sheets).length : 0);
+        debug.log('🔍 [LuckyFile] Found sheets in workbook.xml:', sheets ? Object.keys(sheets).length : 0);
         
         // Log all sheet names found in workbook.xml
         if (sheets) {
             const allSheetNames = Object.keys(sheets).map(key => (sheets as any)[key].attributeList.name);
-            console.log('🔍 [LuckyFile] All sheet names from workbook.xml:', allSheetNames);
+            debug.log('🔍 [LuckyFile] All sheet names from workbook.xml:', allSheetNames);
         }
         
         // Check for orphaned sheet files (sheets that exist as files but aren't in workbook.xml)
@@ -143,13 +144,13 @@ export class LuckyFile extends LuckyFileBase {
                 allSheetFiles.push(fileName);
             }
         }
-        console.log('🔍 [LuckyFile] All sheet files in ZIP:', allSheetFiles);
+        debug.log('🔍 [LuckyFile] All sheet files in ZIP:', allSheetFiles);
         
         let sheetList:IattributeList = {};
         for(let key in sheets){
             let sheet = sheets[key];
             sheetList[sheet.attributeList.name] = sheet.attributeList["sheetId"];
-            console.log(`🔍 [LuckyFile] Processing sheet from workbook.xml:`, {
+            debug.log(`🔍 [LuckyFile] Processing sheet from workbook.xml:`, {
                 name: sheet.attributeList.name,
                 sheetId: sheet.attributeList["sheetId"],
                 rid: sheet.attributeList["r:id"],
@@ -169,7 +170,7 @@ export class LuckyFile extends LuckyFileBase {
             let sheetFile = this.getSheetFileBysheetId(rid);
             let hide = sheet.attributeList.state === "hidden" ? 1 : 0;
             
-            console.log(`🔍 [LuckyFile] Looking for sheet file for "${sheetName}":`, {
+            debug.log(`🔍 [LuckyFile] Looking for sheet file for "${sheetName}":`, {
                 rid: rid,
                 sheetFile: sheetFile,
                 sheetFileExists: sheetFile !== null && sheetFile !== undefined
@@ -187,7 +188,7 @@ export class LuckyFile extends LuckyFileBase {
 
             // Always create sheet, even if file is null (empty sheet)
             // This preserves all sheets including empty ones
-            console.log(`🔍 [LuckyFile] Creating LuckySheet for "${sheetName}"...`);
+            debug.log(`🔍 [LuckyFile] Creating LuckySheet for "${sheetName}"...`);
             let luckySheet = new LuckySheet(sheetName, sheetId, order, isInitialCell,
                 {
                     sheetFile:sheetFile,
@@ -212,7 +213,7 @@ export class LuckyFile extends LuckyFileBase {
             }
 
             this.sheets.push(luckySheet);
-            console.log(`✅ [LuckyFile] Sheet created and added:`, {
+            debug.log(`✅ [LuckyFile] Sheet created and added:`, {
                 name: luckySheet.name,
                 order: luckySheet.order,
                 hasCelldata: luckySheet.celldata && luckySheet.celldata.length > 0,
@@ -220,8 +221,8 @@ export class LuckyFile extends LuckyFileBase {
             });
             order++;
         }
-        console.log('📊 [LuckyFile] Total sheets created in getSheetsFull:', this.sheets.length);
-        console.log('📊 [LuckyFile] Sheet names created:', this.sheets.map((s: any) => s.name));
+        debug.log('📊 [LuckyFile] Total sheets created in getSheetsFull:', this.sheets.length);
+        debug.log('📊 [LuckyFile] Sheet names created:', this.sheets.map((s: any) => s.name));
     }
 
     private columnWidthSet:number[] = [];
@@ -338,9 +339,9 @@ export class LuckyFile extends LuckyFileBase {
 
             cy_n = cy_n + toRowOff - y_n;
 
-            // console.log(defaultColWidth, colhidden , columnlen);
-            // console.log(fromCol, this.columnWidthSet[fromCol] , fromColOff);
-            // console.log(toCol, this.columnWidthSet[toCol] , toColOff, JSON.stringify(this.columnWidthSet));
+            // debug.log(defaultColWidth, colhidden , columnlen);
+            // debug.log(fromCol, this.columnWidthSet[fromCol] , fromColOff);
+            // debug.log(toCol, this.columnWidthSet[toCol] , toColOff, JSON.stringify(this.columnWidthSet));
 
             imageObject.originWidth = cx_n;
             imageObject.originHeight = cy_n;
@@ -354,7 +355,7 @@ export class LuckyFile extends LuckyFileBase {
             imageObject.default.width = cx_n;
         }
 
-        //console.log(this.columnWidthSet, this.rowHeightSet);
+        //debug.log(this.columnWidthSet, this.rowHeightSet);
     }
 
     /**
@@ -415,16 +416,16 @@ export class LuckyFile extends LuckyFileBase {
         // for(let key in this.sheetNameList){
         //     let sheetName=this.sheetNameList[key];
         //     let sheetColumns = xml.getElementsByTagName("row/c/f", sheetName);
-        //     console.log(sheetColumns);
+        //     debug.log(sheetColumns);
         // }
         // return "";
 
-        console.log('🔍 [LuckyFile.Parse] Starting Parse()...');
+        debug.log('🔍 [LuckyFile.Parse] Starting Parse()...');
         this.getWorkBookInfo();
         this.handleWorkBookInfo();
         this.getSheetsFull();
-        console.log('🔍 [LuckyFile.Parse] After getSheetsFull, this.sheets.length:', this.sheets.length);
-        console.log('🔍 [LuckyFile.Parse] Sheet names in this.sheets:', this.sheets.map((s: any) => s.name));
+        debug.log('🔍 [LuckyFile.Parse] After getSheetsFull, this.sheets.length:', this.sheets.length);
+        debug.log('🔍 [LuckyFile.Parse] Sheet names in this.sheets:', this.sheets.map((s: any) => s.name));
 
         // for(let i=0;i<this.sheets.length;i++){
         //     let sheet = this.sheets[i];
@@ -456,11 +457,11 @@ export class LuckyFile extends LuckyFileBase {
         LuckyOutPutFile.workbook = file.workbook;
         LuckyOutPutFile.sheets = [];
 
-        console.log('🔍 [LuckyFile.toJsonString] Total sheets to process:', file.sheets.length);
-        console.log('🔍 [LuckyFile.toJsonString] Sheet names to process:', file.sheets.map((s: any) => s.name));
+        debug.log('🔍 [LuckyFile.toJsonString] Total sheets to process:', file.sheets.length);
+        debug.log('🔍 [LuckyFile.toJsonString] Sheet names to process:', file.sheets.map((s: any) => s.name));
         
         file.sheets.forEach((sheet, index)=>{
-            console.log(`🔍 [LuckyFile.toJsonString] Processing sheet ${index + 1}:`, {
+            debug.log(`🔍 [LuckyFile.toJsonString] Processing sheet ${index + 1}:`, {
                 name: sheet.name,
                 hasCelldata: sheet.celldata !== null && sheet.celldata !== undefined,
                 celldataLength: sheet.celldata ? sheet.celldata.length : 0
@@ -600,21 +601,21 @@ export class LuckyFile extends LuckyFileBase {
             }
             
             LuckyOutPutFile.sheets.push(sheetout);
-            console.log(`✅ [LuckyFile.toJsonString] Added sheet to output:`, {
+            debug.log(`✅ [LuckyFile.toJsonString] Added sheet to output:`, {
                 name: sheetout.name,
                 hasCelldata: sheetout.celldata !== undefined,
                 celldataLength: sheetout.celldata ? sheetout.celldata.length : 0
             });
         });
         
-        console.log('📊 [LuckyFile.toJsonString] Final output sheets:', LuckyOutPutFile.sheets.length);
-        console.log('📊 [LuckyFile.toJsonString] Final output sheet names:', LuckyOutPutFile.sheets.map((s: any) => s.name));
+        debug.log('📊 [LuckyFile.toJsonString] Final output sheets:', LuckyOutPutFile.sheets.length);
+        debug.log('📊 [LuckyFile.toJsonString] Final output sheet names:', LuckyOutPutFile.sheets.map((s: any) => s.name));
         
         const jsonOutput = JSON.stringify(LuckyOutPutFile);
         const parsedOutput = JSON.parse(jsonOutput);
-        console.log('📊 [LuckyFile.toJsonString] After JSON stringify/parse, sheets count:', parsedOutput.data ? parsedOutput.data.length : 0);
+        debug.log('📊 [LuckyFile.toJsonString] After JSON stringify/parse, sheets count:', parsedOutput.data ? parsedOutput.data.length : 0);
         if (parsedOutput.data) {
-            console.log('📊 [LuckyFile.toJsonString] After JSON stringify/parse, sheet names:', parsedOutput.data.map((s: any) => s.name));
+            debug.log('📊 [LuckyFile.toJsonString] After JSON stringify/parse, sheet names:', parsedOutput.data.map((s: any) => s.name));
         }
 
         return jsonOutput;

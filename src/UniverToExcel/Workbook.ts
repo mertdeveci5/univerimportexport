@@ -1,4 +1,5 @@
 import exceljs from "@zwight/exceljs";
+import { debug } from '../utils/debug';
 import { jsonParse } from "../common/method";
 import { ExcelWorkSheet } from "./WorkSheet";
 // SHEET_HYPER_LINK_PLUGIN
@@ -39,12 +40,12 @@ export class WorkBook extends Workbook {
         }
         
         // DEBUG: Excel export error
-        console.log('[DEBUG] Export - Processing defined names:', Object.keys(definedNames).length);
+        debug.log('[DEBUG] Export - Processing defined names:', Object.keys(definedNames).length);
         
         for (const key in definedNames) {
             const element = definedNames[key];
             if (!element || !element.name || !element.formulaOrRefString) {
-                console.log('[DEBUG] Export - Skipping invalid defined name:', element);
+                debug.log('[DEBUG] Export - Skipping invalid defined name:', element);
                 continue;
             }
             
@@ -52,17 +53,17 @@ export class WorkBook extends Workbook {
                 // Validate the formula/reference string
                 const formula = element.formulaOrRefString;
                 
-                console.log('[DEBUG] Export - Processing defined name:', element.name, '=', formula);
+                debug.log('[DEBUG] Export - Processing defined name:', element.name, '=', formula);
                 
                 // Only skip if formula contains actual Excel errors (not just suspicious strings)
                 if (formula.includes('#REF!') || formula.includes('#NAME?')) {
-                    console.log('[DEBUG] Export - Skipping invalid defined name with Excel error:', element.name, formula);
+                    debug.log('[DEBUG] Export - Skipping invalid defined name with Excel error:', element.name, formula);
                     continue;
                 }
                 
                 // Validate that name and formula are not empty
                 if (!element.name.trim() || !formula.trim()) {
-                    console.log('[DEBUG] Export - Skipping empty defined name:', element.name, formula);
+                    debug.log('[DEBUG] Export - Skipping empty defined name:', element.name, formula);
                     continue;
                 }
                 
@@ -73,16 +74,16 @@ export class WorkBook extends Workbook {
                 }
                 
                 // Add the defined name (ExcelJS: add(name, formula))
-                console.log('[DEBUG] Export - About to add defined name, definedNames type:', typeof this.definedNames);
-                console.log('[DEBUG] Export - definedNames object:', this.definedNames);
-                console.log('[DEBUG] Export - Calling add with:', element.name, cleanFormula);
+                debug.log('[DEBUG] Export - About to add defined name, definedNames type:', typeof this.definedNames);
+                debug.log('[DEBUG] Export - definedNames object:', this.definedNames);
+                debug.log('[DEBUG] Export - Calling add with:', element.name, cleanFormula);
                 
                 this.definedNames.add(element.name, cleanFormula);
                 
-                console.log('[DEBUG] Export - Successfully added defined name:', element.name);
-                console.log('[DEBUG] Export - definedNames.model after add:', this.definedNames.model);
+                debug.log('[DEBUG] Export - Successfully added defined name:', element.name);
+                debug.log('[DEBUG] Export - definedNames.model after add:', this.definedNames.model);
             } catch (error) {
-                console.log('[DEBUG] Export - Error adding defined name:', element.name, error);
+                debug.log('[DEBUG] Export - Error adding defined name:', element.name, error);
                 // Don't throw, continue with other defined names
             }
         }

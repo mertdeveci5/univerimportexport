@@ -8,6 +8,7 @@ import {
     LocaleType,
     Nullable,
 } from '@univerjs/core';
+import { debug } from '../utils/debug';
 import { UniverSheetBase } from './UniverSheetBase';
 import { generateRandomId } from '../common/method';
 
@@ -22,7 +23,7 @@ export class UniverCsvWorkBook implements IWorkbookData {
     sheets!: { [sheetId: string]: Partial<IWorksheetData> };
     resources?: IResources | undefined;
     constructor(data: string[][]) {
-        console.log(data);
+        debug.log(data);
         const cellData: IObjectMatrixPrimitiveType<ICellData> = {};
 
         let rowCount = 0,

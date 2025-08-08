@@ -1,4 +1,5 @@
 import { generateRandomId, getPxByEMUs, getRelationShip, getcellrange, hexToRgbArray, numberToABC } from "../common/method"
+import { debug } from '../utils/debug';
 import { LuckyChart, LuckyChartImageBase } from "./LuckyBase"
 import { Element, IStyleCollections, ReadXml } from "./ReadXml"
 import { ChartTypeBits, LabelContentType } from "../common/constant"
@@ -198,7 +199,7 @@ export class ChartImageGroup {
             const minRef = numberToABC(minColumn) + (minRow + 1);
             return minRef + ':' + maxRef;
         } catch (error) {
-            console.error('Error getting chart range:', error);
+            debug.error('Error getting chart range:', error);
             // Return a default range if parsing fails
             return 'A1:B2';
         }
@@ -222,7 +223,7 @@ export class ChartImageGroup {
 
             // If we don't have both x and y, return a default range
             if (!x || !y || !x.value || !y.value) {
-                console.warn('Chart missing data references, using default range');
+                debug.warn('Chart missing data references, using default range');
                 return {
                     maxColumn: 1,
                     maxRow: 1,
@@ -245,7 +246,7 @@ export class ChartImageGroup {
                 minRow
             };
         } catch (error) {
-            console.error('Error parsing chart references:', error);
+            debug.error('Error parsing chart references:', error);
             // Return a default range if parsing fails
             return {
                 maxColumn: 1,
@@ -614,7 +615,7 @@ class Chart extends LuckyChart {
             const idxVal = parseInt(idx.get('val') as string) + 1;
             return idxVal
         })
-        // console.log(cSer, indexs)
+        // debug.log(cSer, indexs)
         return {
             categoryIndex: 0,
             seriesIndexes: indexs

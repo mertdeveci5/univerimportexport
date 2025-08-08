@@ -1,6 +1,7 @@
 import {IuploadfileList, IattributeList, stringToNum} from "../ICommon";
 import {indexedColors}  from "../common/constant";
 import {LightenDarkenColor}  from "../common/method";
+import { debug } from "../utils/debug";
 
 
 class xmloperation {
@@ -14,14 +15,14 @@ class xmloperation {
                 // Replace > with __GT__ placeholder inside attribute values
                 const escapedValue = attrValue.replace(/>/g, '__GT__');
                 hasEscaped = true;
-                console.log(`🔄 [ReadXml] Escaping attribute: ${attrName}="${attrValue}" -> ${attrName}="${escapedValue}"`);
+                debug.log(`🔄 [ReadXml] Escaping attribute: ${attrName}="${attrValue}" -> ${attrName}="${escapedValue}"`);
                 return `${attrName}="${escapedValue}"`;
             }
             return match;
         });
         
         if (hasEscaped) {
-            console.log('🔄 [ReadXml] Escaped problematic characters in XML');
+            debug.log('🔄 [ReadXml] Escaped problematic characters in XML');
         }
         return result;
     }
@@ -29,7 +30,7 @@ class xmloperation {
     // Restore escaped characters back to original
     private unescapeXmlAttributes(xmlString: string): string {
         if (xmlString.includes('__GT__')) {
-            console.log('🔄 [ReadXml] Unescaping XML attributes');
+            debug.log('🔄 [ReadXml] Unescaping XML attributes');
             return xmlString.replace(/__GT__/g, '>');
         }
         return xmlString;
@@ -345,7 +346,7 @@ export function getColor(color:Element, styles:IStyleCollections , type:string="
             if(clrs!=null){
                 let clr = clrs[0];
                 let clrAttrList = clr.attributeList;
-                // console.log(clr.container, );
+                // debug.log(clr.container, );
                 if(clr.container.indexOf("sysClr")>-1){
                     // if(type=="g" && clrAttrList.val=="windowText"){
                     //     bg = null;
@@ -363,7 +364,7 @@ export function getColor(color:Element, styles:IStyleCollections , type:string="
 
                 }
                 else if(clr.container.indexOf("srgbClr")>-1){
-                    // console.log(clrAttrList.val);
+                    // debug.log(clrAttrList.val);
                     bg = "#" + clrAttrList.val;
                 }
             }

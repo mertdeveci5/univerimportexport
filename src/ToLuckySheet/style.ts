@@ -1,4 +1,5 @@
 import { LuckySheetborderInfoCellValueStyle, LuckySheetborderInfoCellForImp, LuckySheetborderInfoCellValue, LuckySheetCelldataBase, LuckySheetCelldataValue, LuckySheetCellFormat, LuckyInlineString } from "./LuckyBase";
+import { debug } from '../utils/debug';
 import { ReadXml, Element, IStyleCollections, getColor, getlineStringAttr } from "./ReadXml";
 import { ST_CellType, indexedColors, OEM_CHARSET, borderTypes, fontFamilys } from "../common/constant"
 import { ABCToNumber, isfreezonFuc } from "../common/method";
@@ -137,7 +138,7 @@ export function getBackgroundByFill(fill: Element, styles: IStyleCollections): s
             let bgColor = bgColors[0];
             bg = getColor(bgColor, styles);
         }
-        // console.log(fgColors,bgColors,clrScheme);
+        // debug.log(fgColors,bgColors,clrScheme);
         if (fg != null) {
             return fg;
         }

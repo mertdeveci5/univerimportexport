@@ -12,6 +12,7 @@ import {
     PositionedObjectLayoutType,
     DrawingTypeEnum,
 } from '@univerjs/core';
+import { debug } from '../utils/debug';
 import { UniverSheetBase } from './UniverSheetBase';
 import { handleStyle, removeEmptyAttr } from './utils';
 import { str2num, generateRandomId } from '../common/method';
@@ -71,7 +72,7 @@ export class UniverSheet extends UniverSheetBase {
             this.cellData = cellData;
             this.rowCount = this.rowCount > rowCount ? this.rowCount : rowCount + 1;
             this.columnCount = this.columnCount > colCount ? this.columnCount : colCount + 1;
-            console.log(this.rowCount, this.columnCount)
+            debug.log(this.rowCount, this.columnCount)
             this.handleRowAndColumnData(config);
             if (sheetData.freezen) this.handleFreeze(sheetData.freezen);
         }
@@ -208,7 +209,7 @@ export class UniverSheet extends UniverSheetBase {
             return pre;
         }, []);
         const cell: IObjectMatrixPrimitiveType<ICellData> = {};
-        // console.log(rowData, celldata, colCount)
+        // debug.log(rowData, celldata, colCount)
         rowData.forEach((row: IluckySheetCelldata[], rowIndex: number) => {
             for (let index = 0; index < colCount + 1; index++) {
                 const element = row.find((d) => d.c === index) || {

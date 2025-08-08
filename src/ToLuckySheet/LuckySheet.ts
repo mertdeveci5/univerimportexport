@@ -1,4 +1,5 @@
 ﻿import { IluckyImageBorder,IluckyImageCrop,IluckyImageDefault,IluckyImages,IluckySheetCelldata,IluckySheetCelldataValue,IMapluckySheetborderInfoCellForImp,IluckySheetborderInfoCellValue,IluckySheetborderInfoCellValueStyle,IFormulaSI,IluckySheetRowAndColumnLen,IluckySheetRowAndColumnHidden,IluckySheetSelection,IcellOtherInfo,IformulaList,IformulaListItem, IluckysheetHyperlink, IluckysheetHyperlinkType, IluckysheetDataVerification} from "./ILuck";
+import { debug } from '../utils/debug';
 import {LuckySheetCelldata} from "./LuckyCell";
 import { IattributeList } from "../ICommon";
 import {getXmlAttibute, getColumnWidthPixel, fromulaRef,getRowHeightPixel,getcellrange,generateRandomIndex,getPxByEMUs, getMultiSequenceToNum, getTransR1C1ToSequence, getPeelOffX14, getMultiFormulaValue} from "../common/method";
@@ -174,7 +175,7 @@ export class LuckySheet extends LuckySheetBase {
                         func = "=" + fromulaRef.functionCopy(func, "left", Math.abs(offsetCol));
                     }
 
-                    // console.log(offsetRow, offsetCol, func);
+                    // debug.log(offsetRow, offsetCol, func);
 
                     (cellValue.v as IluckySheetCelldataValue ).f = func;
                     
@@ -228,16 +229,16 @@ export class LuckySheet extends LuckySheetBase {
             })?.flat().filter(Boolean).concat(extLstRule?.filter((d: any) => conditionList.findIndex(condition => condition.attributeList.sqref === d.parentAttribute.sqref) === -1)) || [];
             
             this.conditionalFormatting = ruleList.map((d: any ) => new LuckyCondition(d, this.readXml, this.styles));
-            // console.log(ruleList, allFileOption, this.conditionalFormatting)
+            // debug.log(ruleList, allFileOption, this.conditionalFormatting)
         }
-        // console.log(allFileOption)
+        // debug.log(allFileOption)
         const filter = new LuckFilter(this.readXml, this.sheetFile)
         if (filter.ref) this.filter = filter;
       
         // dataVerification config
         this.dataVerification = this.generateConfigDataValidations();
         this.dataVerificationList = this.generateConfigDataValidationsList();
-        // console.log('dataVerificationList ---->', this.dataVerificationList)
+        // debug.log('dataVerificationList ---->', this.dataVerificationList)
 
         // hyperlink config
         this.hyperlink = this.generateConfigHyperlinks();
@@ -406,7 +407,7 @@ export class LuckySheet extends LuckySheetBase {
                 return imageObject;
             }
         } catch (error) {
-            console.warn('Failed to process chart/graphic, skipping:', error);
+            debug.warn('Failed to process chart/graphic, skipping:', error);
             // Return empty object to continue processing
         }
         return {};
@@ -640,7 +641,7 @@ export class LuckySheet extends LuckySheetBase {
                             this.formulaRefList[cellValue._formulaSi][cellValue.r+"_"+cellValue.c] = refValue;
                         }
 
-                        // console.log(refValue, this.formulaRefList);
+                        // debug.log(refValue, this.formulaRefList);
                     }
 
                     //There may be formulas that do not appear in calcChain
