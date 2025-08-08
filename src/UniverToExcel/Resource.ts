@@ -4,6 +4,7 @@ import { escapeCharacter, getEmusByPx, getRangetxt, isEmpty, jsonParse, removeEm
 import { CFRuleType, CFSubRuleType } from "../ToLuckySheet/LuckyCondition";
 import { hex2argb } from "./util";
 import { cellStyle } from "./CellStyle";
+import { ChartExporter } from "./ChartExporter";
 
 export class Resource {
     sheetId: string;
@@ -22,6 +23,7 @@ export class Resource {
         this.resources = resources;
 
         this.setImages();
+        this.setCharts();
         this.setConditional();
         this.setDataValidation();
         this.setFilter();
@@ -37,6 +39,18 @@ export class Resource {
     // private setRangeProtection() {
     //     const rangeProtection = this.getSheetResource('SHEET_RANGE_PROTECTION_PLUGIN');
     // }
+    private setCharts() {
+        try {
+            debug.log('📊 [Resource] Setting up charts for sheet:', this.sheetId);
+            ChartExporter.exportCharts(this.workbook, this.worksheet, this.sheetId, this.resources);
+        } catch (error) {
+            debug.log('❌ [Resource] Error setting up charts:', {
+                sheetId: this.sheetId,
+                error: error.message
+            });
+        }
+    }
+    
     private setFilter() {
         const filters = this.getSheetResource('SHEET_FILTER_PLUGIN');
         if (!filters) return;

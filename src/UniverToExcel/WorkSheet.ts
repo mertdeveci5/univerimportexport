@@ -4,6 +4,9 @@ import { convertSheetIdToName, heightConvert, hex2argb, wdithConvert } from "./u
 import { cellStyle, fontConvert } from "./CellStyle";
 import { jsonParse, removeEmptyAttr } from "../common/method";
 import { Resource } from "./Resource";
+import { ArrayFormulaHandler } from "./ArrayFormulaHandler";
+import { FormulaCleaner } from "./FormulaCleaner";
+import { SheetNameHandler } from "./SheetNameHandler";
 
 export class ViewCommon implements WorksheetViewCommon{
     rightToLeft: boolean;
@@ -29,6 +32,13 @@ export function ExcelWorkSheet(workbook: Workbook, snapshot: any) {
     }
     sheetOrder.forEach((sheetId: string) => {
         const sheet = sheets[sheetId];
+        
+        // Ensure sheet exists (important for empty sheets)
+        if (!sheet) {
+            debug.warn('⚠️ [ExcelWorkSheet] Missing sheet data for ID:', sheetId);
+            return;
+        }
+        
         const { 
             id,
             name, 
@@ -41,6 +51,15 @@ export function ExcelWorkSheet(workbook: Workbook, snapshot: any) {
             freeze,
             mergeData
         } = sheet;
+        
+        // Log sheet processing
+        debug.log('📋 [ExcelWorkSheet] Processing sheet:', {
+            sheetId: id,
+            name: name,
+            hidden: hidden === 1,
+            hasCellData: !!(sheet.cellData && Object.keys(sheet.cellData).length > 0),
+            hasArrayFormulas: !!(sheet.arrayFormulas && sheet.arrayFormulas.length > 0)
+        });
         const commonView = new ViewCommon();
         commonView.rightToLeft = rightToLeft === 1;
         commonView.showGridLines = showGridlines === 1;
@@ -54,7 +73,15 @@ export function ExcelWorkSheet(workbook: Workbook, snapshot: any) {
 
         const defaultColWidth = wdithConvert(defaultColumnWidth);
         const defaultRowHeightR = heightConvert(defaultRowHeight);
-        const worksheet = workbook.addWorksheet(name, {
+        // Sanitize sheet name for Excel compatibility
+        const excelSafeName = SheetNameHandler.createExcelSafeSheetName(name);
+        
+        // Log sheet name analysis in debug mode
+        if (name !== excelSafeName) {
+            debug.log('📋 [SheetName] Analysis:', SheetNameHandler.analyzeSheetName(name));
+        }
+        
+        const worksheet = workbook.addWorksheet(excelSafeName, {
             views: [views],
             state: hidden === 1 ? 'hidden' : 'visible',
             properties: {
@@ -86,62 +113,124 @@ function setMerges(worksheet: Worksheet, mergeData: any[]) {
 function setCell(worksheet: Worksheet, sheet: any, styles: any, snapshot: any, workbook: Workbook) {
     const { resources, sheets } = snapshot;
     const { cellData, id } = sheet;
+    const arrayHandler = new ArrayFormulaHandler();
+    
+    // Handle empty sheets - ensure they are properly created
+    if (!cellData || Object.keys(cellData).length === 0) {
+        debug.log('📄 [EmptySheet] Processing empty sheet:', {
+            sheetId: id,
+            sheetName: sheet.name,
+            hasCellData: !!cellData,
+            cellDataKeys: cellData ? Object.keys(cellData).length : 0
+        });
+        
+        // For empty sheets, just ensure worksheet has minimum structure
+        // ExcelJS will handle the empty sheet correctly
+        return;
+    }
+    
+    // Log array formulas for debugging
+    if (sheet.arrayFormulas && sheet.arrayFormulas.length > 0) {
+        debug.log('🔢 [ArrayFormula] Found array formulas in sheet:', {
+            sheetId: id,
+            sheetName: sheet.name,
+            arrayFormulaCount: sheet.arrayFormulas.length,
+            formulas: sheet.arrayFormulas.map((af: any) => ({
+                formula: af.formula,
+                range: `${af.range.startRow},${af.range.startCol}:${af.range.endRow},${af.range.endCol}`,
+                formulaId: af.formulaId
+            }))
+        });
+    }
+    
+    debug.log('📊 [CellData] Processing sheet data:', {
+        sheetId: id,
+        sheetName: sheet.name,
+        rowCount: Object.keys(cellData).length,
+        totalCells: Object.values(cellData).reduce((sum: number, row: any) => sum + Object.keys(row || {}).length, 0)
+    });
+    
     for (const rowid in cellData) {
         const row = cellData[rowid];
+        if (!row) continue; // Skip empty rows
+        
         for (const columnid in row) {
             const cell = row[columnid];
-            if (!cell) continue;
-            // debug.log(rowid + 1, columnid + 1)
-            const target = worksheet.getCell(Number(rowid) + 1, Number(columnid) + 1)
+            if (!cell) continue; // Skip empty cells
+            
+            const rowIndex = Number(rowid);
+            const colIndex = Number(columnid);
+            const target = worksheet.getCell(rowIndex + 1, colIndex + 1);
 
+            // Check if this is an array formula cell
+            if (arrayHandler.isArrayFormula(cell, sheet, rowIndex, colIndex)) {
+                const arrayFormulaInfo = arrayHandler.getArrayFormulaInfo(cell, sheet);
+                
+                if (arrayFormulaInfo && 
+                    arrayFormulaInfo.masterRow === rowIndex && 
+                    arrayFormulaInfo.masterCol === colIndex &&
+                    !arrayHandler.isRangeProcessed(arrayFormulaInfo.range)) {
+                    
+                    // This is the master cell of an array formula
+                    debug.log('🔢 [ArrayFormula] Processing master cell:', {
+                        cell: `${colIndex},${rowIndex}`,
+                        formula: arrayFormulaInfo.formula,
+                        range: arrayFormulaInfo.range
+                    });
+                    
+                    // Apply array formula to the entire range
+                    const success = arrayHandler.applyArrayFormula(worksheet, arrayFormulaInfo, cell.v);
+                    
+                    if (success) {
+                        // Skip normal value handling for array formula cells
+                        // Apply styles only
+                        let originStyle = cell.s;
+                        if (typeof cell.s === 'string') {
+                            originStyle = styles[cell.s];
+                        }
+                        const style = removeEmptyAttr(cellStyle(originStyle, originStyle?.n?.pattern || cell.f));
+                        Object.assign(target, style);
+                        continue;
+                    } else {
+                        debug.log('⚠️ [ArrayFormula] Failed to apply array formula, falling back to regular handling');
+                    }
+                } else {
+                    // This is a dependent cell of an array formula - skip individual processing
+                    debug.log('🔢 [ArrayFormula] Skipping dependent cell:', {
+                        cell: `${colIndex},${rowIndex}`,
+                        formulaId: cell.si
+                    });
+                    continue;
+                }
+            }
+
+            // Regular cell handling
             const valueFromHandle = handleValue(cell, {
                 resources,
                 sheetId: id,
                 rowId: rowid,
                 columnId: columnid,
                 sheets
-            }, workbook );
+            }, workbook, sheet);
             
-            debug.log('[DEBUG] Export - Cell', Number(rowid) + 1, Number(columnid) + 1, 'value from handleValue:', JSON.stringify(valueFromHandle));
+            debug.log('[DEBUG] Export - Cell', rowIndex + 1, colIndex + 1, 'value from handleValue:', JSON.stringify(valueFromHandle));
             target.value = valueFromHandle;
             
-            // Post-process: Remove @ symbols that ExcelJS adds to named ranges
-            // This happens after ExcelJS processes the formula
+            // Post-process: Clean formulas using FormulaCleaner
             if (target.value && typeof target.value === 'object' && 'formula' in target.value) {
                 const originalFormula = target.value.formula;
+                const cleanedFormula = FormulaCleaner.cleanFormula(originalFormula);
                 
-                // Remove incorrectly placed @ symbols
-                // ExcelJS sometimes adds @ symbols where they shouldn't be:
-                // 1. Before function names: @TRANSPOSE -> TRANSPOSE  
-                // 2. Before cell references in functions: (@$N$43:$N$45) -> ($N$43:$N$45)
-                // 3. Before named ranges: @circ -> circ
-                let cleanedFormula = originalFormula;
-                
-                // Fix: Remove @ from function names (like @TRANSPOSE)
-                cleanedFormula = cleanedFormula.replace(/@([A-Z][A-Z0-9_]*)\s*\(/g, '$1(');
-                
-                // Fix: Remove @ from cell references (like @$N$43 or @A1)
-                cleanedFormula = cleanedFormula.replace(/@(\$?[A-Z]+\$?\d+)/g, '$1');
-                
-                // Fix: Remove @ from named ranges (but not structured references like @[Column])
-                cleanedFormula = cleanedFormula.replace(/@([A-Za-z_][A-Za-z0-9_]*)\b(?![\[])/g, '$1');
-                
-                // Debug log
-                if (originalFormula !== cleanedFormula) {
-                    debug.log('[DEBUG] Export - Cleaned @ symbols in formula:', originalFormula, '->', cleanedFormula);
+                if (cleanedFormula && cleanedFormula !== originalFormula) {
+                    target.value = {
+                        formula: cleanedFormula,
+                        result: target.value.result
+                    };
+                } else if (!cleanedFormula) {
+                    // If formula is invalid, fall back to the result value
+                    debug.log('[DEBUG] Export - Invalid formula, using result value:', originalFormula);
+                    target.value = target.value.result || '';
                 }
-                
-                // Create new value object with cleaned formula
-                // IMPORTANT: Also ensure no leading = to prevent double equals issue
-                if (cleanedFormula.startsWith('=')) {
-                    cleanedFormula = cleanedFormula.substring(1);
-                    debug.log('[DEBUG] Export - Also stripped leading = from @ cleaned formula');
-                }
-                
-                target.value = {
-                    formula: cleanedFormula,
-                    result: target.value.result
-                };
             }
             
             let originStyle = cell.s;
@@ -192,7 +281,7 @@ function handleHyperLink(hyperlink: any, sheets: any) {
     return hyperlinks
 }
 
-function handleValue(cell: any, cellSource: any, workbook: Workbook) {
+function handleValue(cell: any, cellSource: any, workbook: Workbook, sheetData?: any) {
     const { sheets } = cellSource
     const hyperlink = getHyperLink(cellSource)
     const hyperlinks = handleHyperLink(hyperlink, sheets)
@@ -223,32 +312,42 @@ function handleValue(cell: any, cellSource: any, workbook: Workbook) {
             }
         }
     } else if (cell.si) {
-        // Validate shared formula
-        if (typeof cell.si === 'string' && !cell.si.includes('#REF!') && !cell.si.includes('#NAME?')) {
-            // Fix double equals issue: ExcelJS expects formulas WITHOUT the leading =
-            let formula = cell.si;
-            if (formula.startsWith('=')) {
-                formula = formula.substring(1);
+        // Check if this is an array formula (handled separately)
+        if (sheetData && sheetData.arrayFormulas) {
+            const isArray = sheetData.arrayFormulas.some((af: any) => af.formulaId === cell.si);
+            if (isArray) {
+                debug.log('[DEBUG] Export - Array formula detected in handleValue, using value only:', cell.v);
+                value = cell.v || '';
+                return value; // Return early for array formulas
             }
-            debug.log('[DEBUG] Export - Processing shared formula:', cell.si, '->', formula);
-            value = { formula: formula, result: cell.v }
+        }
+        
+        // Validate and clean regular shared formula
+        if (FormulaCleaner.isValidFormula(cell.si)) {
+            const cleanedFormula = FormulaCleaner.cleanFormula(cell.si);
+            if (cleanedFormula) {
+                debug.log('[DEBUG] Export - Processing shared formula:', cell.si, '->', cleanedFormula);
+                value = { formula: cleanedFormula, result: cell.v };
+            } else {
+                debug.log('[DEBUG] Export - Formula cleaned to empty, using value:', cell.v);
+                value = cell.v || '';
+            }
         } else {
             debug.log('[DEBUG] Export - Skipping invalid shared formula:', cell.si);
             value = cell.v || '';
         }
     } else if (cell.f) {
         // Handle regular formulas (not just shared formulas)
-        // Validate formula before adding
-        if (typeof cell.f === 'string' && !cell.f.includes('#REF!') && !cell.f.includes('#NAME?')) {
-            // Fix double equals issue: ExcelJS expects formulas WITHOUT the leading =
-            let formula = cell.f;
-            debug.log('[DEBUG] Export - Original formula from Univer:', formula);
-            if (formula.startsWith('=')) {
-                formula = formula.substring(1);
-                debug.log('[DEBUG] Export - Stripped leading = from formula');
+        // Validate and clean formula before adding
+        if (FormulaCleaner.isValidFormula(cell.f)) {
+            const cleanedFormula = FormulaCleaner.cleanFormula(cell.f);
+            if (cleanedFormula) {
+                debug.log('[DEBUG] Export - Processing regular formula:', cell.f, '->', cleanedFormula);
+                value = { formula: cleanedFormula, result: cell.v };
+            } else {
+                debug.log('[DEBUG] Export - Formula cleaned to empty, using value:', cell.v);
+                value = cell.v || '';
             }
-            debug.log('[DEBUG] Export - Final formula to ExcelJS:', formula);
-            value = { formula: formula, result: cell.v }
         } else {
             debug.log('[DEBUG] Export - Skipping invalid formula:', cell.f);
             value = cell.v || '';
