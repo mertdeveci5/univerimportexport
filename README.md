@@ -1,20 +1,25 @@
 # @mertdeveci55/univer-import-export
 
-A comprehensive Excel/CSV import and export library for [Univer](https://github.com/dream-num/univer) spreadsheets with full format preservation.
+A robust Excel/CSV import and export library for [Univer](https://github.com/dream-num/univer) spreadsheets with full format preservation, including formulas, styling, charts, and conditional formatting.
+
+[![npm version](https://img.shields.io/npm/v/@mertdeveci55/univer-import-export.svg)](https://www.npmjs.com/package/@mertdeveci55/univer-import-export)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Features
 
 ✅ **Import Support**
 - Excel files (.xlsx, .xls)
 - CSV files (.csv)
-- Preserves all sheets (including empty ones)
+- Preserves ALL sheets (including empty ones)
+- Handles special characters in sheet names (>>>, etc.)
 - Maintains exact sheet order
 - Full styling preservation (fonts, colors, borders, alignment)
-- Formula and calculated value retention
+- Formula and calculated value retention (including TRANSPOSE and array formulas)
 - Merged cells support
 - Images and charts
 - Conditional formatting
 - Data validation
+- Hyperlinks and rich text
 
 ✅ **Export Support**
 - Excel files (.xlsx)
@@ -169,14 +174,78 @@ The library works in all modern browsers that support:
 - File API
 - Blob API
 
+## Project Structure
+
+```
+src/
+├── ToLuckySheet/         # Excel → LuckySheet conversion
+│   ├── LuckyFile.ts      # Main file orchestrator - handles sheet discovery
+│   ├── LuckySheet.ts     # Individual sheet processor
+│   ├── ReadXml.ts        # XML parser with special character escaping
+│   ├── LuckyCell.ts      # Cell data processor
+│   └── ...
+├── LuckyToUniver/        # LuckySheet → Univer conversion
+│   ├── UniverWorkBook.ts # Workbook structure converter
+│   ├── UniverSheet.ts    # Sheet data converter
+│   └── ...
+├── UniverToExcel/        # Univer → Excel export
+│   ├── Workbook.ts       # Excel workbook builder using ExcelJS
+│   └── ...
+├── HandleZip.ts          # ZIP file operations using JSZip
+└── main.ts               # Entry point with public API
+
+dist/                     # Built output (ESM, CJS, UMD formats)
+publish.sh                # Automated publishing script
+gulpfile.js              # Build configuration
+CLAUDE.md                # Detailed technical documentation
+```
+
+## Key Implementation Details
+
+### Special Character Handling
+Sheet names with special characters (like `>>>`) are handled through an escape/unescape mechanism in `src/ToLuckySheet/ReadXml.ts`:
+
+```javascript
+// Escapes ">" to "__GT__" before XML parsing
+escapeXmlAttributes(xmlString)
+// Restores "__GT__" back to ">" after parsing
+unescapeXmlAttributes(xmlString)
+```
+
+### Empty Sheet Preservation
+All sheets are preserved during import, even if completely empty. This maintains Excel file structure integrity.
+
+### Formula Support
+Comprehensive formula support including:
+- Standard formulas (SUM, AVERAGE, IF, VLOOKUP, etc.)
+- Array formulas
+- TRANSPOSE formulas with proper array handling
+- Shared formulas
+- Named range references
+
 ## Development
 
 ### Building
 
 ```bash
 npm install
-npm run build
+npm run build   # Uses gulp to compile TypeScript and bundle
 ```
+
+### Publishing
+
+Always use the publish script for releases:
+
+```bash
+./publish.sh
+```
+
+This script:
+1. Builds the project
+2. Increments version
+3. Commits changes
+4. Pushes to GitHub
+5. Publishes to npm
 
 ### Testing
 
@@ -184,27 +253,82 @@ npm run build
 npm test
 ```
 
-## Key Improvements in This Version
+## Key Improvements (v0.1.24)
 
-1. **Empty Sheet Preservation**: Empty sheets are no longer skipped during import
-2. **Sheet Order**: Maintains exact sheet order from original file
-3. **Style Preservation**: Complete style mapping including bold, italic, colors, borders
-4. **Formula Handling**: Preserves both formulas and calculated values
-5. **XLS Support**: Automatic conversion of .xls files to .xlsx format
-6. **Better Error Handling**: Comprehensive error messages and handling
+1. **Special Character Support**: Handles sheet names with `>>>` and other special characters via escape/unescape mechanism
+2. **Empty Sheet Preservation**: Empty sheets are never skipped during import
+3. **No Hardcoded Solutions**: Removed all hardcoded sheet additions - all solutions are generic
+4. **Sheet Order**: Maintains exact sheet order from original file
+5. **Style Preservation**: Complete style mapping including bold, italic, colors, borders
+6. **Formula Handling**: Preserves both formulas and calculated values, including TRANSPOSE
+7. **XLS Support**: Automatic conversion of .xls files to .xlsx format
+8. **Better Error Handling**: Comprehensive error messages and detailed logging
+
+## Dependencies
+
+### Core Dependencies
+- [`@progress/jszip-esm`](https://www.npmjs.com/package/@progress/jszip-esm) - ZIP file handling for Excel files
+- [`@zwight/exceljs`](https://www.npmjs.com/package/@zwight/exceljs) - Excel file structure (export)
+- [`@univerjs/core`](https://github.com/dream-num/univer) - Univer core types and interfaces
+- [`dayjs`](https://day.js.org/) - Date manipulation for Excel dates
+- [`papaparse`](https://www.papaparse.com/) - CSV parsing
+- [`xlsx`](https://sheetjs.com/) - Additional Excel format support
+
+### Build Dependencies
+- `gulp` - Build orchestration
+- `rollup` - Module bundling
+- `typescript` - Type safety
+- `terser` - Minification (configured to preserve console.logs)
+
+## Related Projects & References
+
+### Core Dependencies
+- **[Univer](https://github.com/dream-num/univer)** - The spreadsheet engine this library supports
+- **[LuckySheet](https://github.com/mengshukeji/Luckysheet)** - Intermediate format inspiration
+- **[LuckyExcel](https://github.com/dream-num/Luckyexcel)** - Original codebase this fork is based on
+
+### Implementation Examples
+- **[alphafrontend](https://github.com/mertdeveci/alphafrontend)** - Production implementation
+  - See: `src/utils/excel-import.ts` for usage example
+  - See: `src/pages/SpreadsheetsPage.tsx` for UI integration
+
+### Documentation
+- **[CLAUDE.md](./CLAUDE.md)** - Detailed technical documentation for AI assistants
+- **[publish.sh](./publish.sh)** - Automated publishing script
+- **[gulpfile.js](./gulpfile.js)** - Build configuration
+
+## Known Issues & Solutions
+
+| Issue | Solution | Version Fixed |
+|-------|----------|---------------|
+| Sheets with special characters (>>>) not importing | Escape/unescape mechanism in ReadXml.ts | v0.1.23+ |
+| AttributeList undefined errors | Defensive initialization | v0.1.21+ |
+| Duplicate sheets appearing | Removed hardcoded sheet additions | v0.1.24 |
+| TRANSPOSE formulas not working | Array formula support | v0.1.18+ |
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please ensure:
+
+1. **No hardcoded solutions** - All fixes must be generic
+2. **Extensive logging** - Add console.log for debugging
+3. **Use publish.sh** - Never manually publish to npm
+4. **Test edge cases** - Including special characters, empty sheets
+5. **Follow existing patterns** - Check CLAUDE.md for architecture
 
 ## License
 
-MIT
+MIT © mertdeveci
 
 ## Credits
 
-This project is based on the original [Luckyexcel](https://github.com/dream-num/Luckyexcel) and adapted specifically for Univer spreadsheets with enhanced functionality.
+- Original [LuckyExcel](https://github.com/dream-num/Luckyexcel) by DreamNum
+- [Univer](https://github.com/dream-num/univer) spreadsheet engine
+- All contributors and issue reporters
 
 ## Support
 
-For issues and feature requests, please visit the [GitHub repository](https://github.com/mertdeveci/univerjs-import-export/issues).
+For issues and feature requests:
+- [GitHub Issues](https://github.com/mertdeveci/univerjs-import-export/issues)
+- Check [CLAUDE.md](./CLAUDE.md) for technical details
+- Review closed issues for solutions

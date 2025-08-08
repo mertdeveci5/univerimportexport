@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@mertdeveci55/univer-import-export':
-        specifier: ^0.1.22
-        version: 0.1.22(@grpc/grpc-js@1.13.4)(@wendellhu/redi@0.17.1)(rxjs@7.8.2)
+        specifier: ^0.1.24
+        version: 0.1.24(@grpc/grpc-js@1.13.4)(@wendellhu/redi@0.17.1)(rxjs@7.8.2)
       '@progress/jszip-esm':
         specifier: ^1.0.4
         version: 1.0.4
@@ -790,8 +790,8 @@ packages:
     resolution: {integrity: sha512-ajBvlKpWucBB17FuQYUShqpqy8GRgYEpJW0vWJbUu1CV9lWyrDCapy0lScU8T8Z6qn49sSwJB3+M+evYIdGg+A==}
     engines: {node: '>= 0.4'}
 
-  '@mertdeveci55/univer-import-export@0.1.22':
-    resolution: {integrity: sha512-ndO9ZJEXC0SYiSKfoGpEfIDRnVTgFoc9rXnSkffvjDZ5djGB9W26LdsOH0vsf0a8+qRpNea15c3QDalVuUO2BA==}
+  '@mertdeveci55/univer-import-export@0.1.24':
+    resolution: {integrity: sha512-iTifwbSNxG8iiRe83B4EfOiVmWNufHVCJrVbzhu3BqLM/V5E5aEyUs8KMqQEAf4Enw4Au0TRqgobzKPJlQNx7Q==}
 
   '@nodelib/fs.scandir@2.1.5':
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
@@ -6280,7 +6280,7 @@ snapshots:
     dependencies:
       call-bind: 1.0.8
 
-  '@mertdeveci55/univer-import-export@0.1.22(@grpc/grpc-js@1.13.4)(@wendellhu/redi@0.17.1)(rxjs@7.8.2)':
+  '@mertdeveci55/univer-import-export@0.1.24(@grpc/grpc-js@1.13.4)(@wendellhu/redi@0.17.1)(rxjs@7.8.2)':
     dependencies:
       '@progress/jszip-esm': 1.0.4
       '@univerjs/core': 0.6.10(@grpc/grpc-js@1.13.4)(@wendellhu/redi@0.17.1)(rxjs@7.8.2)

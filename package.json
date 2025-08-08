@@ -92,7 +92,7 @@
     "watchify": "^3.11.1"
   },
   "dependencies": {
-    "@mertdeveci55/univer-import-export": "^0.1.22",
+    "@mertdeveci55/univer-import-export": "^0.1.24",
     "@progress/jszip-esm": "^1.0.4",
     "@univerjs/core": "^0.6.10",
     "@zwight/exceljs": "4.4.2",
