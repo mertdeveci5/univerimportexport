@@ -5,9 +5,9 @@ import {
     IStyleData,
     IWorkbookData,
     IWorksheetData,
-    LocaleType,
     Nullable,
 } from '@univerjs/core';
+import { LocaleType } from '../common/univerEnums';
 import { debug } from '../utils/debug';
 import { UniverSheetBase } from './UniverSheetBase';
 import { generateRandomId } from '../common/method';
@@ -17,7 +17,7 @@ export class UniverCsvWorkBook implements IWorkbookData {
     rev?: number | undefined;
     name: string;
     appVersion!: string;
-    locale!: LocaleType;
+    locale!: any; // Changed from LocaleType to any to avoid import issues
     styles!: Record<string, Nullable<IStyleData>>;
     sheetOrder!: string[];
     sheets!: { [sheetId: string]: Partial<IWorksheetData> };
@@ -44,6 +44,9 @@ export class UniverCsvWorkBook implements IWorkbookData {
         this.sheetOrder = [sheetId];
         this.id = generateRandomId(6);
         this.name = this.id;
+        this.locale = LocaleType.EN_US; // Set default locale
+        this.appVersion = '0.1.0';
+        this.styles = {};
     }
     get mode(): IWorkbookData {
         return {

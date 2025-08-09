@@ -1,14 +1,16 @@
 import {
-    BooleanNumber,
-    VerticalAlign,
     Nullable,
     IBorderData,
     IBorderStyleData,
+} from '@univerjs/core';
+import {
+    BooleanNumber,
+    VerticalAlign,
     WrapStrategy,
     TextDecoration,
     ThemeColorType,
     HorizontalAlign,
-} from '@univerjs/core';
+} from '../common/univerEnums';
 import { isObject } from '../common/method';
 import { IluckySheetborderInfoCellForImp, IluckySheetborderInfoCellValueStyle, IluckySheetCelldata } from '../ToLuckySheet/ILuck';
 

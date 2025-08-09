@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Formula Debug</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        table { border-collapse: collapse; margin: 20px 0; }
+        td, th { border: 1px solid #ddd; padding: 8px; }
+        .error { color: red; }
+        .warning { color: orange; }
+        .changed { background: #fffacd; }
+    </style>
+</head>
+<body>
+    <h1>Formula Debug Analysis</h1>
+    <input type="file" id="file" accept=".xlsx">
+    <div id="output"></div>
+    
+    <script src="dist/luckyexcel.umd.js"></script>
+    <script>
+        document.getElementById('file').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const output = document.getElementById('output');
+            output.innerHTML = '<h2>Analyzing formulas...</h2>';
+            
+            LuckyExcel.transformExcelToUniver(
+                file,
+                function(data) {
+                    let html = '<h2>Import Complete - Checking Formulas</h2>';
+                    
+                    // Analyze formulas in imported data
+                    let formulaCount = 0;
+                    let sharedFormulaCount = 0;
+                    let problematicFormulas = [];
+                    
+                    data.sheetOrder.forEach(sheetId => {
+                        const sheet = data.sheets[sheetId];
+                        if (!sheet.cellData) return;
+                        
+                        html += `<h3>Sheet: ${sheet.name}</h3>`;
+                        html += '<table><tr><th>Cell</th><th>Formula (f)</th><th>Shared ID (si)</th><th>Value (v)</th></tr>';
+                        
+                        for (const row in sheet.cellData) {
+                            for (const col in sheet.cellData[row]) {
+                                const cell = sheet.cellData[row][col];
+                                if (cell && (cell.f || cell.si)) {
+                                    const cellAddr = String.fromCharCode(65 + parseInt(col)) + (parseInt(row) + 1);
+                                    
+                                    // Check for problematic patterns
+                                    let className = '';
+                                    if (cell.f) {
+                                        formulaCount++;
+                                        
+                                        // Check for issues
+                                        if (cell.f.includes("+'") || cell.f.includes('=+')) {
+                                            className = 'error';
+                                            problematicFormulas.push({
+                                                sheet: sheet.name,
+                                                cell: cellAddr,
+                                                formula: cell.f,
+                                                issue: 'Has +\' pattern'
+                                            });
+                                        }
+                                        
+                                        if (cell.f.includes('CHOOSE') && cell.si) {
+                                            className = className || 'warning';
+                                        }
+                                    }
+                                    
+                                    if (cell.si) {
+                                        sharedFormulaCount++;
+                                    }
+                                    
+                                    html += `<tr class="${className}">`;
+                                    html += `<td>${cellAddr}</td>`;
+                                    html += `<td>${cell.f || '-'}</td>`;
+                                    html += `<td>${cell.si || '-'}</td>`;
+                                    html += `<td>${JSON.stringify(cell.v)}</td>`;
+                                    html += '</tr>';
+                                }
+                            }
+                        }
+                        html += '</table>';
+                    });
+                    
+                    html += '<h2>Summary</h2>';
+                    html += `<p>Total formulas: ${formulaCount}</p>`;
+                    html += `<p>Shared formula cells: ${sharedFormulaCount}</p>`;
+                    
+                    if (problematicFormulas.length > 0) {
+                        html += '<h3 class="error">Problematic Formulas Found:</h3>';
+                        html += '<ul>';
+                        problematicFormulas.forEach(p => {
+                            html += `<li>${p.sheet} ${p.cell}: ${p.formula} (${p.issue})</li>`;
+                        });
+                        html += '</ul>';
+                    }
+                    
+                    // Now test export
+                    html += '<h2>Testing Export...</h2>';
+                    html += '<button onclick="testExport()">Export and Analyze</button>';
+                    
+                    window.testData = data;
+                    output.innerHTML = html;
+                },
+                function(error) {
+                    output.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+                }
+            );
+        });
+        
+        function testExport() {
+            if (!window.testData) return;
+            
+            const output = document.getElementById('output');
+            output.innerHTML += '<h2>Exporting...</h2>';
+            
+            // Capture console logs
+            const logs = [];
+            const originalLog = console.log;
+            console.log = function(...args) {
+                logs.push(args.join(' '));
+                originalLog.apply(console, args);
+            };
+            
+            LuckyExcel.transformUniverToExcel({
+                snapshot: window.testData,
+                fileName: 'debug-export.xlsx',
+                success: function(buffer) {
+                    console.log = originalLog;
+                    
+                    // Analyze logs
+                    let html = '<h3>Export Logs (Formula Processing)</h3>';
+                    html += '<pre>';
+                    logs.filter(log => log.includes('[Formula]') || log.includes('formula')).forEach(log => {
+                        html += log + '\n';
+                    });
+                    html += '</pre>';
+                    
+                    // Create download
+                    const blob = new Blob([buffer], {
+                        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'debug-export.xlsx';
+                    a.textContent = 'Download debug-export.xlsx';
+                    a.style.display = 'block';
+                    a.style.marginTop = '20px';
+                    
+                    output.innerHTML += html;
+                    output.appendChild(a);
+                },
+                error: function(err) {
+                    console.log = originalLog;
+                    output.innerHTML += `<div class="error">Export error: ${err.message}</div>`;
+                }
+            });
+        }
+    </script>
+</body>
+</html>

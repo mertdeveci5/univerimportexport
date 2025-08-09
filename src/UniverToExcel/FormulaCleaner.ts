@@ -28,6 +28,12 @@ export class FormulaCleaner {
             cleaned = cleaned.substring(1);
             debug.log('[FormulaCleaner] Removed leading =');
         }
+        
+        // Step 1b: Remove leading + if present (Excel uses +' for sheet refs but it causes issues)
+        if (cleaned.startsWith('+')) {
+            cleaned = cleaned.substring(1);
+            debug.log('[FormulaCleaner] Removed leading +');
+        }
 
         // Step 2: Remove @ symbols that ExcelJS incorrectly adds
         cleaned = this.removeIncorrectAtSymbols(cleaned);

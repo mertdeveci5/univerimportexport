@@ -1,17 +1,14 @@
 import {
-    BooleanNumber,
     ICellData,
     IRange,
     IObjectMatrixPrimitiveType,
     IObjectArrayPrimitiveType,
     IRowData,
     IColumnData,
-    CellValueType,
     Nullable,
     IDocumentData,
-    PositionedObjectLayoutType,
-    DrawingTypeEnum,
 } from '@univerjs/core';
+import { BooleanNumber, CellValueType, PositionedObjectLayoutType, DrawingTypeEnum } from '../common/univerEnums';
 import { debug } from '../utils/debug';
 import { UniverSheetBase } from './UniverSheetBase';
 import { handleStyle, removeEmptyAttr } from './utils';

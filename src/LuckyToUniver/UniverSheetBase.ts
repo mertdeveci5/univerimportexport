@@ -1,5 +1,4 @@
 import {
-    BooleanNumber,
     ICellData,
     IColumnData,
     IFreeze,
@@ -8,8 +7,9 @@ import {
     IRange,
     IRowData,
     IWorksheetData,
-    SheetTypes,
 } from '@univerjs/core';
+import { BooleanNumber, SheetTypes } from '../common/univerEnums';
+
 export interface UniverSheetBaseParams {
     id?: string;
     name?: string;
@@ -20,7 +20,7 @@ export interface UniverSheetBaseParams {
 export class UniverSheetBase implements IWorksheetData {
     id: string;
     name!: string;
-    type: SheetTypes = SheetTypes.GRID;
+    type: any = SheetTypes.GRID; // Changed to any to avoid import issues
     tabColor: string = '';
     hidden: BooleanNumber = 0;
     freeze: IFreeze = {

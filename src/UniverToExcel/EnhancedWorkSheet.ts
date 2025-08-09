@@ -292,16 +292,31 @@ function processFormula(target: any, cell: any, snapshot: any): void {
         return;
     }
     
+    // Log original formula
+    debug.log('🔢 [Formula] Processing formula:', {
+        original: cell.f,
+        hasSi: !!cell.si,
+        value: cell.v
+    });
+    
     // Clean the formula
     const formula = FormulaCleaner.cleanFormula(cell.f);
     
     if (formula) {
+        debug.log('✅ [Formula] Setting formula:', {
+            cleaned: formula,
+            result: cell.v
+        });
         target.value = {
             formula: formula,
             result: cell.v !== undefined ? convertCellValue(cell) : undefined
         };
     } else {
         // If formula is invalid, use the cached value
+        debug.warn('⚠️ [Formula] Formula cleaned to empty, using cached value:', {
+            original: cell.f,
+            value: cell.v
+        });
         target.value = convertCellValue(cell);
     }
 }

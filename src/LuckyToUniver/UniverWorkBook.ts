@@ -1,13 +1,11 @@
 import {
-    DrawingTypeEnum,
     IStyleData,
     IWorkbookData,
     IWorksheetData,
-    LocaleType,
     Nullable,
-    PresetGeometryType,
 } from '@univerjs/core';
 import { IResources } from '@univerjs/core/lib/types/services/resource-manager/type';
+import { DrawingTypeEnum, PresetGeometryType, LocaleType } from '../common/univerEnums';
 import { debug } from '../utils/debug';
 import { HyperLink, UniverSheet } from './UniverSheet';
 // import { ISheetDrawing, SheetDrawingAnchorType } from '@univerjs/sheets-drawing';
@@ -23,12 +21,13 @@ interface Sheets {
 interface LuckySheetObj {
     [sheetId: string]: Partial<IluckySheet>;
 }
+
 export class UniverWorkBook implements IWorkbookData {
     id!: string;
     rev?: number | undefined;
     name!: string;
     appVersion!: string;
-    locale!: LocaleType;
+    locale!: any; // Changed from LocaleType to any to avoid import issues
     styles!: Record<string, Nullable<IStyleData>>;
     sheetOrder!: string[];
     sheets!: Sheets;
@@ -54,7 +53,7 @@ export class UniverWorkBook implements IWorkbookData {
         this.id = generateRandomId(6);
         this.name = info.name;
         this.appVersion = info.appversion;
-        this.locale = LocaleType.ZH_CN;
+        this.locale = LocaleType.ZH_CN; // Using local enum
 
         const workSheets: Sheets = {},
             order: string[] = [],
@@ -213,7 +212,7 @@ export class UniverWorkBook implements IWorkbookData {
                         drawingType: DrawingTypeEnum.DRAWING_IMAGE,
                         imageSourceType: ImageSourceType.BASE64,
                         source: image.src,
-                        prstGeom: 'rect' as Nullable<PresetGeometryType>,
+                        prstGeom: PresetGeometryType.Rect as Nullable<PresetGeometryType>,
                         anchorType: '1',
                     }
                 }
