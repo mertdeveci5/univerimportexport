@@ -2,6 +2,7 @@ import exceljs from "@zwight/exceljs";
 import { debug } from '../utils/debug';
 import { jsonParse } from "../common/method";
 import { ExcelWorkSheet } from "./WorkSheet";
+import { createEnhancedWorksheet } from "./EnhancedWorkSheet";
 // SHEET_HYPER_LINK_PLUGIN
 // SHEET_DRAWING_PLUGIN
 // SHEET_DEFINED_NAME_PLUGIN
@@ -19,8 +20,17 @@ export class WorkBook extends Workbook {
         // this.properties.date1904 = true;
         this.calcProperties.fullCalcOnLoad = true;
 
-        // Create worksheets first, THEN add defined names
-        ExcelWorkSheet(this, snapshot);
+        // Use enhanced export for better feature support
+        const useEnhanced = true; // Can be made configurable
+        
+        if (useEnhanced) {
+            debug.log('🚀 [WorkBook] Using enhanced export');
+            createEnhancedWorksheet(this, snapshot);
+        } else {
+            // Fallback to original export
+            ExcelWorkSheet(this, snapshot);
+        }
+        
         this.setDefineNames(snapshot.resources);
     }
 

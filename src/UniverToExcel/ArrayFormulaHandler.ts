@@ -1,4 +1,11 @@
 import { debug } from '../utils/debug';
+import { 
+    columnNumberToLetter, 
+    createRangeReference,
+    createRangeId,
+    isValidCell 
+} from './utils';
+import { FORMULA_CONSTANTS } from './constants';
 
 export interface ArrayFormulaInfo {
     formula: string;
@@ -22,14 +29,29 @@ export class ArrayFormulaHandler {
      * Check if a cell is part of an array formula
      */
     isArrayFormula(cell: any, sheetData: any, rowIndex: number, colIndex: number): boolean {
+        // Validate inputs
+        if (!cell || !sheetData || !isValidCell(rowIndex, colIndex)) {
+            return false;
+        }
+        
         // Check if this cell has a shared formula ID that corresponds to an array formula
-        if (!cell.si) return false;
+        if (!cell.si) {
+            return false;
+        }
 
         // Look for array formulas in sheet data
         const arrayFormulas = sheetData.arrayFormulas || [];
+        
         for (const arrayFormula of arrayFormulas) {
             if (arrayFormula.formulaId === cell.si) {
                 const { range } = arrayFormula;
+                
+                // Validate range object
+                if (!this.isValidRange(range)) {
+                    debug.warn('🔢 [ArrayFormula] Invalid range in array formula:', arrayFormula);
+                    continue;
+                }
+                
                 const isInRange = rowIndex >= range.startRow && 
                                  rowIndex <= range.endRow &&
                                  colIndex >= range.startCol &&
@@ -38,8 +60,8 @@ export class ArrayFormulaHandler {
                 if (isInRange) {
                     debug.log('🔢 [ArrayFormula] Found array formula cell:', {
                         formula: arrayFormula.formula,
-                        range: `${this.numberToColumnLetter(range.startCol)}${range.startRow + 1}:${this.numberToColumnLetter(range.endCol)}${range.endRow + 1}`,
-                        cell: `${this.numberToColumnLetter(colIndex)}${rowIndex + 1}`,
+                        range: createRangeReference(range.startRow, range.startCol, range.endRow, range.endCol),
+                        cell: `${columnNumberToLetter(colIndex)}${rowIndex + 1}`,
                         formulaId: cell.si
                     });
                     return true;
@@ -54,12 +76,18 @@ export class ArrayFormulaHandler {
      * Get array formula info for a cell
      */
     getArrayFormulaInfo(cell: any, sheetData: any): ArrayFormulaInfo | null {
-        if (!cell.si) return null;
+        if (!cell?.si || !sheetData) {
+            return null;
+        }
 
         const arrayFormulas = sheetData.arrayFormulas || [];
+        
         for (const arrayFormula of arrayFormulas) {
             if (arrayFormula.formulaId === cell.si) {
-                return arrayFormula;
+                // Validate the array formula structure
+                if (this.isValidArrayFormula(arrayFormula)) {
+                    return arrayFormula;
+                }
             }
         }
 
@@ -71,28 +99,46 @@ export class ArrayFormulaHandler {
      * This should be called for the master cell of the array formula
      */
     applyArrayFormula(worksheet: any, arrayFormula: ArrayFormulaInfo, startCellValue: any): boolean {
-        const { formula, range, masterRow, masterCol } = arrayFormula;
-        
-        // Create range string (e.g., "A1:C3")
-        const rangeStr = `${this.numberToColumnLetter(range.startCol)}${range.startRow + 1}:${this.numberToColumnLetter(range.endCol)}${range.endRow + 1}`;
-        
-        // Avoid processing the same range twice
-        if (this.processedRanges.has(rangeStr)) {
+        // Validate inputs
+        if (!worksheet || !arrayFormula || !this.isValidArrayFormula(arrayFormula)) {
+            debug.warn('🔢 [ArrayFormula] Invalid parameters for applyArrayFormula');
             return false;
         }
-        this.processedRanges.add(rangeStr);
+        
+        const { formula, range } = arrayFormula;
+        
+        // Create range string (e.g., "A1:C3")
+        const rangeStr = createRangeReference(range.startRow, range.startCol, range.endRow, range.endCol);
+        
+        // Create unique range ID for tracking
+        const rangeId = createRangeId(range.startRow, range.startCol, range.endRow, range.endCol);
+        
+        // Avoid processing the same range twice
+        if (this.processedRanges.has(rangeId)) {
+            debug.log('🔢 [ArrayFormula] Range already processed:', rangeStr);
+            return false;
+        }
+        
+        this.processedRanges.add(rangeId);
 
-        // Clean the formula (remove leading =)
-        let cleanFormula = formula;
-        if (cleanFormula.startsWith('=')) {
-            cleanFormula = cleanFormula.substring(1);
+        // Clean the formula
+        const cleanFormula = this.cleanFormula(formula);
+        
+        if (!cleanFormula) {
+            debug.warn('🔢 [ArrayFormula] Formula cleaning resulted in empty formula');
+            return false;
         }
 
         try {
             debug.log('🔢 [ArrayFormula] Applying array formula:', {
                 range: rangeStr,
                 formula: cleanFormula,
-                masterCell: `${this.numberToColumnLetter(masterCol)}${masterRow + 1}`
+                masterCell: createRangeReference(
+                    arrayFormula.masterRow, 
+                    arrayFormula.masterCol,
+                    arrayFormula.masterRow,
+                    arrayFormula.masterCol
+                )
             });
 
             // Use ExcelJS fillFormula for array formulas
@@ -103,11 +149,11 @@ export class ArrayFormulaHandler {
             return true;
 
         } catch (error: any) {
-            debug.log('❌ [ArrayFormula] Error applying array formula:', error);
-            debug.log('❌ [ArrayFormula] Failed formula details:', {
+            debug.error('❌ [ArrayFormula] Error applying array formula:', {
                 range: rangeStr,
                 formula: cleanFormula,
-                error: error.message
+                error: error.message,
+                stack: error.stack
             });
             return false;
         }
@@ -117,25 +163,12 @@ export class ArrayFormulaHandler {
      * Check if a range has already been processed
      */
     isRangeProcessed(range: { startRow: number; endRow: number; startCol: number; endCol: number }): boolean {
-        const rangeStr = `${this.numberToColumnLetter(range.startCol)}${range.startRow + 1}:${this.numberToColumnLetter(range.endCol)}${range.endRow + 1}`;
-        return this.processedRanges.has(rangeStr);
-    }
-
-    /**
-     * Convert column number to Excel column letter (0-based)
-     * 0 -> A, 1 -> B, 25 -> Z, 26 -> AA, etc.
-     */
-    private numberToColumnLetter(colNumber: number): string {
-        let result = '';
-        let num = colNumber;
-        
-        while (num >= 0) {
-            result = String.fromCharCode(65 + (num % 26)) + result;
-            num = Math.floor(num / 26) - 1;
-            if (num < 0) break;
+        if (!this.isValidRange(range)) {
+            return false;
         }
         
-        return result;
+        const rangeId = createRangeId(range.startRow, range.startCol, range.endRow, range.endCol);
+        return this.processedRanges.has(rangeId);
     }
 
     /**
@@ -144,6 +177,7 @@ export class ArrayFormulaHandler {
     reset(): void {
         this.arrayFormulas.clear();
         this.processedRanges.clear();
+        debug.log('🔢 [ArrayFormula] Handler reset');
     }
 
     /**
@@ -155,5 +189,78 @@ export class ArrayFormulaHandler {
             processedRangesCount: this.processedRanges.size,
             processedRanges: Array.from(this.processedRanges)
         });
+    }
+    
+    /**
+     * Clean formula for Excel compatibility
+     */
+    private cleanFormula(formula: string): string {
+        if (!formula || typeof formula !== 'string') {
+            return '';
+        }
+        
+        let cleaned = formula.trim();
+        
+        // Remove leading formula start character if present
+        if (cleaned.startsWith(FORMULA_CONSTANTS.SPECIAL_CHARS.FORMULA_START)) {
+            cleaned = cleaned.substring(1);
+        }
+        
+        // Remove any Excel error codes
+        for (const errorCode of Object.values(FORMULA_CONSTANTS.ERROR_CODES)) {
+            if (cleaned.includes(errorCode)) {
+                debug.warn('🔢 [ArrayFormula] Formula contains error code:', errorCode);
+                return '';
+            }
+        }
+        
+        return cleaned;
+    }
+    
+    /**
+     * Validate range object structure
+     */
+    private isValidRange(range: any): boolean {
+        return range &&
+               typeof range === 'object' &&
+               typeof range.startRow === 'number' &&
+               typeof range.endRow === 'number' &&
+               typeof range.startCol === 'number' &&
+               typeof range.endCol === 'number' &&
+               range.startRow >= 0 &&
+               range.endRow >= range.startRow &&
+               range.startCol >= 0 &&
+               range.endCol >= range.startCol &&
+               isValidCell(range.startRow, range.startCol) &&
+               isValidCell(range.endRow, range.endCol);
+    }
+    
+    /**
+     * Validate array formula structure
+     */
+    private isValidArrayFormula(arrayFormula: any): boolean {
+        return arrayFormula &&
+               typeof arrayFormula === 'object' &&
+               typeof arrayFormula.formula === 'string' &&
+               arrayFormula.formula.length > 0 &&
+               this.isValidRange(arrayFormula.range) &&
+               typeof arrayFormula.masterRow === 'number' &&
+               typeof arrayFormula.masterCol === 'number' &&
+               typeof arrayFormula.formulaId === 'string';
+    }
+    
+    /**
+     * Get statistics about processed array formulas
+     */
+    getStatistics(): {
+        totalProcessed: number;
+        ranges: string[];
+        formulas: string[];
+    } {
+        return {
+            totalProcessed: this.processedRanges.size,
+            ranges: Array.from(this.processedRanges),
+            formulas: Array.from(this.arrayFormulas.values()).map(af => af.formula)
+        };
     }
 }

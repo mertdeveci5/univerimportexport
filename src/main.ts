@@ -8,6 +8,7 @@ import { debug } from './utils/debug';
 import { IuploadfileList } from "./ICommon";
 
 import { WorkBook } from "./UniverToExcel/Workbook";
+import { exportUniverToExcel } from "./UniverToExcel/index";
 import exceljs from "@zwight/exceljs";
 import { CSV } from "./UniverToCsv/CSV";
 import { isObject } from "./common/method";
@@ -223,12 +224,12 @@ export class LuckyExcel {
     }) {
         const { snapshot, fileName = `excel_${(new Date).getTime()}.xlsx`, getBuffer = false, success, error } = params;
         try {
-            // console.log(1, new Date())
-            const workbook = new WorkBook(snapshot);
-            // console.log(snapshot, workbook)
-            // console.log(2, new Date())
-            const buffer = await workbook.xlsx.writeBuffer();
-            // console.log(3, new Date())
+            debug.log('🚀 [transformUniverToExcel] Starting export with enhanced handler');
+            
+            // Use enhanced export for better feature support
+            const buffer = await exportUniverToExcel(snapshot);
+            
+            debug.log('✅ [transformUniverToExcel] Export completed, buffer size:', buffer.length);
             if (getBuffer) {
                 success?.(buffer);
             } else {
