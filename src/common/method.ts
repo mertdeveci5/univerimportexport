@@ -1160,6 +1160,8 @@ export function isfreezonFuc(txt:string) {
     // Parse cell reference to detect absolute references
     // Format can be: $E$16, $E16, E$16, or E16
     
+    const originalTxt = txt;
+    
     // Remove sheet prefix if present (e.g., "Sheet1!$E$16" -> "$E$16")
     if (txt.indexOf("!") > -1) {
         txt = txt.split("!")[1];

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Import Test - Formula Analysis</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        table { border-collapse: collapse; margin: 20px 0; }
+        td, th { border: 1px solid #ddd; padding: 8px; }
+        .error { background: #ffcccc; }
+        .warning { background: #ffffcc; }
+        .formula-cell { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Import-Only Test - Check Formula Corruption</h1>
+    <p><strong>Console.log test:</strong> Check browser console for debug messages</p>
+    <input type="file" id="file" accept=".xlsx">
+    <div id="output"></div>
+    
+    <script src="dist/luckyexcel.umd.js"></script>
+    <script>
+        document.getElementById('file').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const output = document.getElementById('output');
+            output.innerHTML = '<h2>Importing and analyzing formulas...</h2>';
+            
+            LuckyExcel.transformExcelToUniver(
+                file,
+                function(data) {
+                    let html = '<h2>✅ Import Complete - Formula Analysis</h2>';
+                    
+                    // Find the Operational Assumptions sheet
+                    const operationalSheet = Object.values(data.sheets).find(s => 
+                        s.name && s.name.includes('Operational')
+                    );
+                    
+                    if (operationalSheet) {
+                        html += `<h3>Sheet: ${operationalSheet.name}</h3>`;
+                        html += '<h4>Row 16 Formulas (the problematic row):</h4>';
+                        html += '<table>';
+                        html += '<tr><th>Cell</th><th>Formula (f)</th><th>Shared ID (si)</th><th>Issue</th></tr>';
+                        
+                        // Check row 16 (index 15)
+                        const row16 = operationalSheet.cellData && operationalSheet.cellData[15];
+                        if (row16) {
+                            // Check specific columns: E(4), M(12), N(13), O(14), P(15), Q(16), etc.
+                            const importantCols = [4, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
+                            
+                            importantCols.forEach(col => {
+                                const cell = row16[col];
+                                if (cell && cell.f) {
+                                    const colLetter = String.fromCharCode(65 + col);
+                                    const cellRef = colLetter + '16';
+                                    
+                                    let issue = '';
+                                    let className = '';
+                                    
+                                    // Check for =+ prefix
+                                    if (cell.f.startsWith('=+')) {
+                                        issue += 'Has =+ prefix; ';
+                                        className = 'warning';
+                                    }
+                                    
+                                    // Check for CHOOSE formula with wrong reference
+                                    if (cell.f.includes('CHOOSE')) {
+                                        const match = cell.f.match(/CHOOSE\(\$?([A-Z]+)\$?(\d+)/);
+                                        if (match) {
+                                            const refCol = match[1];
+                                            const refRow = match[2];
+                                            
+                                            // For CHOOSE formulas, they should all reference $E16
+                                            if (refCol === 'E' && refRow !== '16') {
+                                                issue += `Wrong row ref: E${refRow} (should be E16); `;
+                                                className = 'error';
+                                            }
+                                        }
+                                    }
+                                    
+                                    html += `<tr class="${className}">`;
+                                    html += `<td class="formula-cell">${cellRef}</td>`;
+                                    html += `<td>${cell.f}</td>`;
+                                    html += `<td>${cell.si || '-'}</td>`;
+                                    html += `<td>${issue || 'OK'}</td>`;
+                                    html += '</tr>';
+                                }
+                            });
+                        }
+                        html += '</table>';
+                        
+                        // Also check E11 and E16 which are referenced
+                        html += '<h4>Referenced cells:</h4>';
+                        html += '<table>';
+                        html += '<tr><th>Cell</th><th>Formula</th><th>Value</th></tr>';
+                        
+                        // E11 (row 10, col 4)
+                        if (operationalSheet.cellData[10] && operationalSheet.cellData[10][4]) {
+                            const e11 = operationalSheet.cellData[10][4];
+                            html += '<tr>';
+                            html += '<td>E11</td>';
+                            html += `<td>${e11.f || '-'}</td>`;
+                            html += `<td>${e11.v}</td>`;
+                            html += '</tr>';
+                        }
+                        
+                        // E16 (row 15, col 4)
+                        if (operationalSheet.cellData[15] && operationalSheet.cellData[15][4]) {
+                            const e16 = operationalSheet.cellData[15][4];
+                            html += '<tr>';
+                            html += '<td>E16</td>';
+                            html += `<td>${e16.f || '-'}</td>`;
+                            html += `<td>${e16.v}</td>`;
+                            html += '</tr>';
+                        }
+                        
+                        html += '</table>';
+                    } else {
+                        html += '<p class="error">Could not find Operational Assumptions sheet!</p>';
+                    }
+                    
+                    // Summary
+                    html += '<h3>Summary</h3>';
+                    html += '<p>The formulas shown above are what was imported from the Excel file.</p>';
+                    html += '<p>If they are already wrong here, the issue is in the IMPORT process.</p>';
+                    html += '<p>The =+ prefix and incorrect cell references mean the XML parsing or formula processing during import is corrupting them.</p>';
+                    
+                    output.innerHTML = html;
+                },
+                function(error) {
+                    output.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+                }
+            );
+        });
+    </script>
+</body>
+</html>

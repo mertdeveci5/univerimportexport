@@ -210,7 +210,7 @@ function bundleUMD() {
             },
             // 压缩选项
             compress: {
-                drop_console: true, // 删除console语句
+                drop_console: false, // Keep console logs for debugging (was: true)
                 dead_code: true,    // 删除死代码
                 conditionals: true, // 优化条件表达式
                 comparisons: true   // 优化比较运算

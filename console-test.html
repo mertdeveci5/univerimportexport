@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Console.log Test</title>
+</head>
+<body>
+    <h1>Console.log Test</h1>
+    <p>Open browser console and look for debug messages</p>
+    <button onclick="testConsole()">Test Console.log</button>
+    <input type="file" id="file" accept=".xlsx" onchange="testImport(event)">
+    
+    <script src="dist/luckyexcel.umd.js"></script>
+    <script>
+        function testConsole() {
+            console.log('🔥 DIRECT CONSOLE.LOG TEST: This should appear in console');
+            console.warn('🔥 DIRECT CONSOLE.WARN TEST: This should appear in console');
+            console.error('🔥 DIRECT CONSOLE.ERROR TEST: This should appear in console');
+        }
+        
+        function testImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            console.log('🔥 STARTING IMPORT TEST');
+            
+            LuckyExcel.transformExcelToUniver(
+                file,
+                function(data) {
+                    console.log('✅ Import complete');
+                },
+                function(error) {
+                    console.error('❌ Import failed:', error);
+                }
+            );
+        }
+        
+        // Test immediately on page load
+        window.onload = function() {
+            testConsole();
+        };
+    </script>
+</body>
+</html>

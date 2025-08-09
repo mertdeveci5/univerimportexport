@@ -97,7 +97,19 @@ export class LuckySheetCelldata extends LuckySheetCelldataBase {
             // debug.log(ref, t, si);
             if (ref != null || (formulaValue != null && formulaValue.length > 0)) {
                 formulaValue = escapeCharacter(formulaValue);
+                
+                // Ensure formula starts with =
                 cellValue.f = formulaValue[0] === '=' ? formulaValue : "=" + formulaValue;
+                
+                // Fix Excel XML corruption: remove =+ prefix and replace with =
+                if (cellValue.f.startsWith('=+')) {
+                    cellValue.f = '=' + cellValue.f.substring(2);
+                }
+                // Store CHOOSE formulas for final summary (don't log each one)
+                if(cellValue.f.includes("CHOOSE")) {
+                    if(!(window as any)._chooseFormulas) (window as any)._chooseFormulas = [];
+                    (window as any)._chooseFormulas.push(`r${this.r}c${this.c} = "${cellValue.f}"`);
+                }
                 
                 // Store array formula information
                 if (t == "array" || t == "shared") {

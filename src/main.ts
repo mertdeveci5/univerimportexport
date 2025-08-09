@@ -79,6 +79,15 @@ export class LuckyExcel {
         callback?: (files: IWorkbookData, fs?: string) => void,
         errorHandler?: (err: Error) => void
     ) {
+        // SIMPLE CONSOLE.LOG TEST - SHOULD ALWAYS WORK
+        console.log('🔥 CONSOLE.LOG TEST: transformExcelToUniver called with file:', excelFile.name);
+        
+        // Enable debug logging in browser
+        if (typeof window !== 'undefined') {
+            (window as any).__DEBUG__ = true;
+            console.log('🔥 DEBUG ENABLED: window.__DEBUG__ set to true');
+        }
+        
         debug.log('🚀 [PACKAGE] transformExcelToUniver START', {
             fileName: excelFile.name,
             fileSize: `${(excelFile.size / 1024).toFixed(2)} KB`,
@@ -127,6 +136,14 @@ export class LuckyExcel {
                         if (callback != undefined) {
                             debug.log('📦 [PACKAGE] Creating UniverWorkBook...');
                             const univerData = new UniverWorkBook(exportJson);
+                            
+                            // FINAL SUMMARY - Show only first 3 CHOOSE formulas to check + prefix fix
+                            if((window as any)._chooseFormulas && (window as any)._chooseFormulas.length > 0) {
+                                console.log(`✅ CHOOSE FORMULAS: Found ${(window as any)._chooseFormulas.length} total. First 3:`);
+                                for(let i = 0; i < Math.min(3, (window as any)._chooseFormulas.length); i++) {
+                                    console.log(`   ${(window as any)._chooseFormulas[i]}`);
+                                }
+                            }
                             
                             debug.log('📦 [PACKAGE] Calling callback with data...');
                             callback(univerData.mode, luckysheetfile);
