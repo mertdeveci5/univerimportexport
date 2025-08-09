@@ -6,9 +6,10 @@
  */
 
 import { Workbook, Worksheet } from "@zwight/exceljs";
-import { CellValueType } from '@univerjs/core';
 import { debug } from '../utils/debug';
 import { 
+    BooleanNumber,
+    CellValueType,
     fromBooleanNumber, 
     convertCellValue, 
     resolveStyle, 

@@ -5,8 +5,21 @@
  * to maintain perfect symmetry with the import process.
  */
 
-import { BooleanNumber, CellValueType } from '@univerjs/core';
 import { debug } from '../utils/debug';
+
+// Define our own enums to avoid dependency issues in UMD build
+// These match the @univerjs/core definitions
+export enum BooleanNumber {
+    FALSE = 0,
+    TRUE = 1
+}
+
+export enum CellValueType {
+    STRING = 1,
+    NUMBER = 2,
+    BOOLEAN = 3,
+    FORCE_STRING = 4
+}
 
 /**
  * Convert Univer BooleanNumber to JavaScript boolean

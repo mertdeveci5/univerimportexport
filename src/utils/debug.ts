@@ -20,12 +20,43 @@ const isDebugEnabled = (): boolean => {
 
 const noop = () => {};
 
+// Create safe wrappers that always work
+const safeLog = (...args: any[]) => {
+  if (isDebugEnabled() && console.log) {
+    console.log(...args);
+  }
+};
+
+const safeWarn = (...args: any[]) => {
+  if (isDebugEnabled() && console.warn) {
+    console.warn(...args);
+  }
+};
+
+const safeError = (...args: any[]) => {
+  if (console.error) {
+    console.error(...args);
+  }
+};
+
+const safeInfo = (...args: any[]) => {
+  if (isDebugEnabled() && console.info) {
+    console.info(...args);
+  }
+};
+
+const safeDebug = (...args: any[]) => {
+  if (isDebugEnabled() && console.debug) {
+    console.debug(...args);
+  }
+};
+
 export const debug = {
-  log: isDebugEnabled() ? console.log.bind(console) : noop,
-  warn: isDebugEnabled() ? console.warn.bind(console) : noop,
-  error: console.error.bind(console), // Always keep error logging
-  info: isDebugEnabled() ? console.info.bind(console) : noop,
-  debug: isDebugEnabled() ? console.debug.bind(console) : noop,
+  log: safeLog,
+  warn: safeWarn,
+  error: safeError,
+  info: safeInfo,
+  debug: safeDebug,
 };
 
 // For development: Enable debug logging
