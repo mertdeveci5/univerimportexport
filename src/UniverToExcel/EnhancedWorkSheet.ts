@@ -177,7 +177,31 @@ function processCellData(worksheet: Worksheet, sheet: any, styles: any, snapshot
         hasArrayFormulas: !!(arrayFormulas && arrayFormulas.length > 0)
     });
     
-    // Process each row
+    // Track shared formulas to handle them properly
+    const sharedFormulas = new Map<string, { masterCell: string, range: any }>();
+    
+    // First pass: identify shared formula master cells
+    for (const rowIndex in cellData) {
+        const row = cellData[rowIndex];
+        if (!row) continue;
+        
+        for (const colIndex in row) {
+            const cell = row[colIndex];
+            if (!cell) continue;
+            
+            // If cell has both si (shared formula ID) and f (formula), it's a master cell
+            if (cell.si && cell.f) {
+                const cellAddr = `${columnIndexToLetter(Number(colIndex))}${Number(rowIndex) + 1}`;
+                sharedFormulas.set(cell.si, { 
+                    masterCell: cellAddr,
+                    range: null // We'll need to determine the range if needed
+                });
+                debug.log(`📐 [EnhancedWorkSheet] Found shared formula master: ${cellAddr}, ID: ${cell.si}`);
+            }
+        }
+    }
+    
+    // Second pass: process cells
     for (const rowIndex in cellData) {
         const row = cellData[rowIndex];
         if (!row) continue;
@@ -211,7 +235,17 @@ function processCellData(worksheet: Worksheet, sheet: any, styles: any, snapshot
                 }
             }
             
-            // Process regular cell
+            // Check if this is a dependent cell in a shared formula
+            if (cell.si && !cell.f) {
+                // This is a dependent cell - ExcelJS will handle it automatically
+                // Just set the value, not the formula
+                const target = worksheet.getCell(toOneBased(rowNum), toOneBased(colNum));
+                target.value = convertCellValue(cell);
+                applyCellStyle(target, cell, styles);
+                continue;
+            }
+            
+            // Process regular cell (or shared formula master cell)
             processCell(worksheet, rowNum, colNum, cell, styles, snapshot);
         }
     }
@@ -248,12 +282,18 @@ function processCell(worksheet: Worksheet, row: number, col: number, cell: any, 
  * Process formula for a cell
  */
 function processFormula(target: any, cell: any, snapshot: any): void {
-    let formula = cell.f || cell.si;
+    // IMPORTANT: cell.si is a shared formula ID, not a formula string!
+    // Only cell.f contains the actual formula text
     
-    if (!formula) return;
+    if (!cell.f) {
+        // No formula in this cell
+        // If it has si but no f, it's a dependent cell in a shared formula range
+        // ExcelJS will handle these automatically when we set the master cell's formula
+        return;
+    }
     
     // Clean the formula
-    formula = FormulaCleaner.cleanFormula(formula);
+    const formula = FormulaCleaner.cleanFormula(cell.f);
     
     if (formula) {
         target.value = {

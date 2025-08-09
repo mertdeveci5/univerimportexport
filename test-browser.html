@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Shared Formula Fix</title>
+    <script src="./dist/luckyexcel.umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .container {
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        #output {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-size: 12px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        .warning { color: orange; }
+        input[type="file"] {
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Shared Formula Fix</h1>
+    
+    <div class="container">
+        <p>Select test.xlsx to test the shared formula fix:</p>
+        <input type="file" id="fileInput" accept=".xlsx">
+        <button onclick="testExport()">Test Export</button>
+        <button onclick="clearOutput()">Clear Output</button>
+    </div>
+    
+    <div id="output"></div>
+
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(message, className = '') {
+            const line = document.createElement('div');
+            line.textContent = message;
+            if (className) line.className = className;
+            output.appendChild(line);
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        function clearOutput() {
+            output.innerHTML = '';
+        }
+        
+        async function testExport() {
+            const fileInput = document.getElementById('fileInput');
+            if (!fileInput.files.length) {
+                log('Please select a file first', 'error');
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            clearOutput();
+            log('Testing export with file: ' + file.name, 'info');
+            log('');
+            
+            try {
+                // Step 1: Import to Univer
+                log('Step 1: Importing Excel to Univer format...', 'info');
+                
+                await new Promise((resolve, reject) => {
+                    LuckyExcel.transformExcelToUniver(
+                        file,
+                        (univerData) => {
+                            log('✅ Import successful', 'success');
+                            log('');
+                            
+                            // Check for shared formulas
+                            const opSheet = Object.values(univerData.sheets).find(s => 
+                                s.name === 'Operational Assumptions'
+                            );
+                            
+                            if (opSheet && opSheet.cellData) {
+                                let sharedFormulaCount = 0;
+                                let masterCells = 0;
+                                
+                                for (const row in opSheet.cellData) {
+                                    for (const col in opSheet.cellData[row]) {
+                                        const cell = opSheet.cellData[row][col];
+                                        if (cell && cell.si) {
+                                            sharedFormulaCount++;
+                                            if (cell.f) masterCells++;
+                                        }
+                                    }
+                                }
+                                
+                                log(`Found ${sharedFormulaCount} cells with shared formulas`);
+                                log(`Master cells (with formula text): ${masterCells}`);
+                                log('');
+                            }
+                            
+                            // Step 2: Export back to Excel
+                            log('Step 2: Exporting back to Excel...', 'info');
+                            
+                            LuckyExcel.transformUniverToExcel({
+                                snapshot: univerData,
+                                fileName: 'test-fixed.xlsx',
+                                success: async () => {
+                                    log('✅ Export successful', 'success');
+                                    log('');
+                                    
+                                    // Step 3: Compare formulas
+                                    log('Step 3: Comparing formulas...', 'info');
+                                    log('');
+                                    
+                                    // Read both files with SheetJS for comparison
+                                    const originalBuffer = await file.arrayBuffer();
+                                    const originalWB = XLSX.read(originalBuffer);
+                                    
+                                    // For the exported file, we would need to trigger another file input
+                                    // or use the buffer if available
+                                    log('⚠️ To complete the comparison, please:', 'warning');
+                                    log('1. Download the exported test-fixed.xlsx file');
+                                    log('2. Use a separate tool to compare formulas');
+                                    log('');
+                                    log('Or check the following cells manually in the exported file:');
+                                    log('- Cell O16: Should be =CHOOSE($E16,O17,O18,O19)');
+                                    log('- Cell P16: Should be =CHOOSE($E16,P17,P18,P19)');
+                                    log('- Cell Q16: Should be =CHOOSE($E16,Q17,Q18,Q19)');
+                                    log('');
+                                    log('If these formulas have $E16 (not $E17, $E18, etc.), the fix is working!');
+                                    
+                                    resolve();
+                                },
+                                error: (err) => {
+                                    log('❌ Export failed: ' + err.message, 'error');
+                                    reject(err);
+                                }
+                            });
+                        },
+                        (error) => {
+                            log('❌ Import failed: ' + error.message, 'error');
+                            reject(error);
+                        }
+                    );
+                });
+                
+            } catch (error) {
+                log('❌ Test failed: ' + error.message, 'error');
+                console.error(error);
+            }
+        }
+    </script>
+</body>
+</html>
