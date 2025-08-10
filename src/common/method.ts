@@ -629,17 +629,28 @@ export class fromulaRef {
             let $row = freezonFuc[0] ? "$" : "",
                 $col = freezonFuc[1] ? "$" : "";
             
-            if (orient == "u" && !freezonFuc[0]) {
-                row -= step;
+            // CRITICAL BUG FIX: The conditions were wrong!
+            // When moving right/left, we should ONLY change col if column is not frozen
+            // When moving up/down, we should ONLY change row if row is not frozen
+            if (orient == "u") {
+                if (!freezonFuc[0]) {  // Only change row if row is not absolute
+                    row -= step;
+                }
             } 
-            else if (orient == "r" && !freezonFuc[1]) {
-                col += step;
+            else if (orient == "d") {
+                if (!freezonFuc[0]) {  // Only change row if row is not absolute
+                    row += step;
+                }
+            }
+            else if (orient == "r") {
+                if (!freezonFuc[1]) {  // Only change col if column is not absolute
+                    col += step;
+                }
             } 
-            else if (orient == "l" && !freezonFuc[1]) {
-                col -= step;
-            } 
-            else if (!freezonFuc[0]) {
-                row += step;
+            else if (orient == "l") {
+                if (!freezonFuc[1]) {  // Only change col if column is not absolute
+                    col -= step;
+                }
             }
 
             if(row < 0 || col < 0){

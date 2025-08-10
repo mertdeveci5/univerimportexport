@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Full Excel Import/Export Comparison Test</title>
+    <style>
+        body { 
+            font-family: monospace; 
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .section {
+            border: 2px solid #333;
+            padding: 15px;
+            margin: 20px 0;
+            background: #f5f5f5;
+        }
+        h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        table { 
+            border-collapse: collapse; 
+            width: 100%;
+            margin: 10px 0;
+            background: white;
+        }
+        td, th { 
+            border: 1px solid #ddd; 
+            padding: 8px;
+            text-align: left;
+            font-size: 12px;
+        }
+        th {
+            background: #333;
+            color: white;
+        }
+        .formula { 
+            background: #e8f4ff;
+            font-weight: bold;
+        }
+        .different { 
+            background: #ffcccc !important;
+            font-weight: bold;
+        }
+        .same { 
+            background: #ccffcc !important;
+        }
+        .empty {
+            background: #f0f0f0;
+            color: #999;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .status.processing {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            margin-right: 10px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .summary {
+            background: #fff;
+            padding: 15px;
+            border: 2px solid #007bff;
+            margin: 20px 0;
+        }
+        .diff-count {
+            font-size: 18px;
+            font-weight: bold;
+            color: #d9534f;
+        }
+        #diffSummary {
+            position: sticky;
+            top: 10px;
+            background: white;
+            z-index: 100;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <h1>🔬 Full Excel Import/Export Comparison Test</h1>
+    
+    <div class="controls">
+        <input type="file" id="originalFile" accept=".xlsx">
+        <button onclick="runFullTest()">Run Full Comparison</button>
+        <button onclick="downloadExported()">Download Exported File</button>
+    </div>
+
+    <div id="status" class="status processing">Select an Excel file to begin...</div>
+
+    <div id="diffSummary" class="summary" style="display:none;">
+        <h3>📊 Difference Summary</h3>
+        <div id="summaryContent"></div>
+    </div>
+
+    <div id="results"></div>
+
+    <script src="dist/luckyexcel.umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        let originalData = null;
+        let importedData = null;
+        let exportedData = null;
+        let exportedBuffer = null;
+
+        function setStatus(message, type = 'processing') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+
+        function downloadExported() {
+            if (!exportedBuffer) {
+                alert('No exported file available. Run the test first.');
+                return;
+            }
+            const blob = new Blob([exportedBuffer], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'exported-test.xlsx';
+            a.click();
+        }
+
+        async function runFullTest() {
+            const file = document.getElementById('originalFile').files[0];
+            if (!file) {
+                alert('Please select an Excel file first');
+                return;
+            }
+
+            setStatus('Step 1/3: Reading original Excel file...', 'processing');
+            
+            try {
+                // Step 1: Read original Excel file using XLSX.js
+                originalData = await readExcelWithXLSX(file);
+                console.log('Original data:', originalData);
+
+                setStatus('Step 2/3: Importing with LuckyExcel (transformExcelToUniver)...', 'processing');
+                
+                // Step 2: Import with our library
+                await new Promise((resolve, reject) => {
+                    LuckyExcel.transformExcelToUniver(
+                        file,
+                        function(univerData) {
+                            importedData = univerData;
+                            console.log('Imported data:', importedData);
+                            resolve();
+                        },
+                        function(error) {
+                            reject(error);
+                        }
+                    );
+                });
+
+                setStatus('Step 3/3: Exporting back to Excel (transformUniverToExcel)...', 'processing');
+
+                // Step 3: Export back to Excel
+                await new Promise((resolve, reject) => {
+                    LuckyExcel.transformUniverToExcel({
+                        snapshot: importedData,
+                        getBuffer: true,
+                        success: function(buffer) {
+                            exportedBuffer = buffer;
+                            // Read the exported Excel file
+                            const blob = new Blob([buffer], {
+                                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                            });
+                            readExcelWithXLSX(blob).then(data => {
+                                exportedData = data;
+                                console.log('Exported data:', exportedData);
+                                resolve();
+                            });
+                        },
+                        error: reject
+                    });
+                });
+
+                setStatus('Analyzing differences...', 'processing');
+                
+                // Step 4: Compare all three versions
+                compareAllVersions();
+                
+                setStatus('✅ Comparison complete! Check results below.', 'success');
+
+            } catch (error) {
+                console.error('Error:', error);
+                setStatus(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        function readExcelWithXLSX(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = e.target.result;
+                        const workbook = XLSX.read(data, {
+                            type: 'binary',
+                            cellFormula: true,
+                            cellStyles: true,
+                            cellDates: true
+                        });
+                        
+                        const sheets = {};
+                        workbook.SheetNames.forEach(sheetName => {
+                            const worksheet = workbook.Sheets[sheetName];
+                            sheets[sheetName] = parseSheet(worksheet);
+                        });
+                        
+                        resolve({
+                            sheetNames: workbook.SheetNames,
+                            sheets: sheets
+                        });
+                    } catch (err) {
+                        reject(err);
+                    }
+                };
+                reader.onerror = reject;
+                
+                if (file instanceof Blob) {
+                    reader.readAsBinaryString(file);
+                } else {
+                    reader.readAsBinaryString(file);
+                }
+            });
+        }
+
+        function parseSheet(worksheet) {
+            const cells = {};
+            const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+            
+            for (let row = range.s.r; row <= range.e.r; row++) {
+                for (let col = range.s.c; col <= range.e.c; col++) {
+                    const cellAddress = XLSX.utils.encode_cell({r: row, c: col});
+                    const cell = worksheet[cellAddress];
+                    
+                    if (cell) {
+                        const cellKey = `${row}_${col}`;
+                        cells[cellKey] = {
+                            value: cell.v,
+                            formula: cell.f,
+                            type: cell.t,
+                            raw: cell.w || cell.v,
+                            address: cellAddress
+                        };
+                    }
+                }
+            }
+            
+            return {
+                cells: cells,
+                range: range
+            };
+        }
+
+        function getUniverCellData(sheet, row, col) {
+            if (!sheet.cellData || !sheet.cellData[row] || !sheet.cellData[row][col]) {
+                return null;
+            }
+            const cell = sheet.cellData[row][col];
+            return {
+                value: cell.v,
+                formula: cell.f,
+                type: typeof cell.v,
+                raw: cell.v
+            };
+        }
+
+        function compareAllVersions() {
+            const results = document.getElementById('results');
+            const summaryDiv = document.getElementById('diffSummary');
+            const summaryContent = document.getElementById('summaryContent');
+            
+            results.innerHTML = '';
+            
+            let totalDifferences = 0;
+            let formulaDifferences = [];
+            let valueDifferences = [];
+            
+            // Compare each sheet
+            originalData.sheetNames.forEach(sheetName => {
+                const section = document.createElement('div');
+                section.className = 'section';
+                
+                let html = `<h2>Sheet: ${sheetName}</h2>`;
+                
+                // Find corresponding Univer sheet
+                const univerSheet = Object.values(importedData.sheets).find(s => s.name === sheetName);
+                
+                if (!univerSheet) {
+                    html += '<p class="error">⚠️ Sheet not found in imported data!</p>';
+                    section.innerHTML = html;
+                    results.appendChild(section);
+                    totalDifferences++;
+                    return;
+                }
+                
+                // Create comparison table
+                html += `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Cell</th>
+                                <th>Original Formula</th>
+                                <th>Imported Formula</th>
+                                <th>Exported Formula</th>
+                                <th>Original Value</th>
+                                <th>Imported Value</th>
+                                <th>Exported Value</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                const origSheet = originalData.sheets[sheetName];
+                const expSheet = exportedData ? exportedData.sheets[sheetName] : null;
+                
+                // Check all cells from original
+                Object.keys(origSheet.cells).forEach(cellKey => {
+                    const [row, col] = cellKey.split('_').map(Number);
+                    const origCell = origSheet.cells[cellKey];
+                    const impCell = getUniverCellData(univerSheet, row, col);
+                    const expCell = expSheet ? expSheet.cells[cellKey] : null;
+                    
+                    // Only show cells with formulas or differences
+                    const hasFormula = origCell.formula || (impCell && impCell.formula) || (expCell && expCell.formula);
+                    const hasDifference = 
+                        (origCell.formula !== (impCell ? impCell.formula : undefined)) ||
+                        (origCell.formula !== (expCell ? expCell.formula : undefined)) ||
+                        (origCell.value !== (impCell ? impCell.value : undefined)) ||
+                        (origCell.value !== (expCell ? expCell.value : undefined));
+                    
+                    if (hasFormula || hasDifference) {
+                        const origFormula = origCell.formula || '';
+                        const impFormula = impCell ? (impCell.formula || '') : '';
+                        const expFormula = expCell ? (expCell.formula || '') : '';
+                        
+                        const origValue = origCell.value !== undefined ? origCell.value : '';
+                        const impValue = impCell ? (impCell.value !== undefined ? impCell.value : '') : '';
+                        const expValue = expCell ? (expCell.value !== undefined ? expCell.value : '') : '';
+                        
+                        const formulaSame = origFormula === impFormula && origFormula === expFormula;
+                        const valueSame = origValue === impValue && origValue === expValue;
+                        
+                        if (!formulaSame && origFormula) {
+                            formulaDifferences.push({
+                                cell: origCell.address,
+                                sheet: sheetName,
+                                original: origFormula,
+                                imported: impFormula,
+                                exported: expFormula
+                            });
+                            totalDifferences++;
+                        }
+                        
+                        if (!valueSame) {
+                            valueDifferences.push({
+                                cell: origCell.address,
+                                sheet: sheetName,
+                                original: origValue,
+                                imported: impValue,
+                                exported: expValue
+                            });
+                            totalDifferences++;
+                        }
+                        
+                        html += `
+                            <tr>
+                                <td><strong>${origCell.address}</strong></td>
+                                <td class="${origFormula === impFormula ? 'same' : 'different'}">${escapeHtml(origFormula)}</td>
+                                <td class="${origFormula === impFormula ? 'same' : 'different'}">${escapeHtml(impFormula)}</td>
+                                <td class="${origFormula === expFormula ? 'same' : 'different'}">${escapeHtml(expFormula)}</td>
+                                <td class="${origValue === impValue ? 'same' : 'different'}">${escapeHtml(String(origValue))}</td>
+                                <td class="${origValue === impValue ? 'same' : 'different'}">${escapeHtml(String(impValue))}</td>
+                                <td class="${origValue === expValue ? 'same' : 'different'}">${escapeHtml(String(expValue))}</td>
+                                <td>${formulaSame && valueSame ? '✅' : '❌'}</td>
+                            </tr>
+                        `;
+                    }
+                });
+                
+                html += '</tbody></table>';
+                section.innerHTML = html;
+                results.appendChild(section);
+            });
+            
+            // Show summary
+            if (totalDifferences > 0) {
+                summaryDiv.style.display = 'block';
+                summaryContent.innerHTML = `
+                    <div class="diff-count">Found ${totalDifferences} total differences!</div>
+                    <h4>Formula Differences (${formulaDifferences.length}):</h4>
+                    <ul>
+                        ${formulaDifferences.slice(0, 10).map(d => 
+                            `<li><strong>${d.sheet}!${d.cell}</strong>: "${d.original}" → Import: "${d.imported}" → Export: "${d.exported}"</li>`
+                        ).join('')}
+                        ${formulaDifferences.length > 10 ? `<li>... and ${formulaDifferences.length - 10} more</li>` : ''}
+                    </ul>
+                    <h4>Value Differences (${valueDifferences.length}):</h4>
+                    <ul>
+                        ${valueDifferences.slice(0, 10).map(d => 
+                            `<li><strong>${d.sheet}!${d.cell}</strong>: "${d.original}" → Import: "${d.imported}" → Export: "${d.exported}"</li>`
+                        ).join('')}
+                        ${valueDifferences.length > 10 ? `<li>... and ${valueDifferences.length - 10} more</li>` : ''}
+                    </ul>
+                `;
+            } else {
+                summaryDiv.style.display = 'block';
+                summaryContent.innerHTML = '<div style="color: green; font-size: 18px;">✅ Perfect! No differences found!</div>';
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

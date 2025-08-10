@@ -105,11 +105,7 @@ export class LuckySheetCelldata extends LuckySheetCelldataBase {
                 if (cellValue.f.startsWith('=+')) {
                     cellValue.f = '=' + cellValue.f.substring(2);
                 }
-                // Store CHOOSE formulas for final summary (don't log each one)
-                if(cellValue.f.includes("CHOOSE")) {
-                    if(!(window as any)._chooseFormulas) (window as any)._chooseFormulas = [];
-                    (window as any)._chooseFormulas.push(`r${this.r}c${this.c} = "${cellValue.f}"`);
-                }
+                // Debug logging removed
                 
                 // Store array formula information
                 if (t == "array" || t == "shared") {
