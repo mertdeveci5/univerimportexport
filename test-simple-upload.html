@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Excel Import/Export Fix Test</title>
+    <script src="./dist/luckyexcel.umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+        .status.show {
+            display: block;
+        }
+        .status.processing {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .download-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #2196F3;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 10px 5px;
+        }
+        .download-btn:hover {
+            background: #1976D2;
+        }
+        .download-btn.primary {
+            background: #4CAF50;
+        }
+        .download-btn.primary:hover {
+            background: #45a049;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Excel Import/Export Fix Test</h1>
+    
+    <div class="container">
+        <h2>Step 1: Select Excel File</h2>
+        <button id="selectFileBtn">Select Excel File (.xlsx)</button>
+        <input type="file" id="fileInput" accept=".xlsx" style="display: none;">
+        <p id="selectedFile"></p>
+    </div>
+    
+    <div class="status" id="status"></div>
+    
+    <div class="container" id="results" style="display: none;">
+        <h2>Results</h2>
+        <div id="downloads"></div>
+        <h3>Processing Log</h3>
+        <pre id="log"></pre>
+    </div>
+
+    <script>
+        // Debug log function
+        const debugLog = [];
+        function log(message, data) {
+            const timestamp = new Date().toISOString().slice(11, 23);
+            const logEntry = `[${timestamp}] ${message}`;
+            console.log(logEntry, data || '');
+            debugLog.push(logEntry + (data ? ' ' + JSON.stringify(data) : ''));
+            
+            // Update log display
+            const logEl = document.getElementById('log');
+            if (logEl) {
+                logEl.textContent = debugLog.slice(-50).join('\n'); // Show last 50 lines
+            }
+        }
+
+        // Initialize
+        log('Page loaded');
+        
+        // Check if LuckyExcel is loaded
+        if (typeof LuckyExcel !== 'undefined') {
+            log('LuckyExcel loaded successfully');
+        } else {
+            log('ERROR: LuckyExcel not loaded!');
+        }
+
+        // DOM elements
+        const selectFileBtn = document.getElementById('selectFileBtn');
+        const fileInput = document.getElementById('fileInput');
+        const selectedFile = document.getElementById('selectedFile');
+        const status = document.getElementById('status');
+        const results = document.getElementById('results');
+        const downloads = document.getElementById('downloads');
+
+        // File selection
+        selectFileBtn.addEventListener('click', () => {
+            log('Select file button clicked');
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                log('File selected', { name: file.name, size: file.size });
+                selectedFile.textContent = `Selected: ${file.name} (${(file.size/1024).toFixed(2)} KB)`;
+                processFile(file);
+            }
+        });
+
+        // Main processing function
+        async function processFile(file) {
+            log('=== START PROCESSING ===');
+            
+            // Update UI
+            status.className = 'status processing show';
+            status.textContent = 'Processing file...';
+            results.style.display = 'none';
+            downloads.innerHTML = '';
+            
+            try {
+                // Step 1: Import to Univer
+                log('Step 1: Importing to Univer...');
+                
+                const univerData = await new Promise((resolve, reject) => {
+                    if (!window.LuckyExcel) {
+                        reject(new Error('LuckyExcel not available'));
+                        return;
+                    }
+                    
+                    LuckyExcel.transformExcelToUniver(
+                        file,
+                        (data) => {
+                            log('Import successful');
+                            resolve(data);
+                        },
+                        (error) => {
+                            log('Import error', error.message);
+                            reject(error);
+                        }
+                    );
+                });
+
+                // Analyze imported data
+                const analysis = analyzeUniverData(univerData);
+                log('Data analysis', analysis);
+
+                // Step 2: Standard export
+                log('Step 2: Standard export...');
+                
+                const standardBuffer = await new Promise((resolve, reject) => {
+                    LuckyExcel.transformUniverToExcel({
+                        snapshot: univerData,
+                        fileName: 'export.xlsx',
+                        getBuffer: true,
+                        success: (buffer) => {
+                            log('Standard export successful', { size: buffer.byteLength });
+                            resolve(buffer);
+                        },
+                        error: (err) => {
+                            log('Export error', err.message);
+                            reject(err);
+                        }
+                    });
+                });
+
+                // Step 3: Apply fixes
+                log('Step 3: Applying post-processing fixes...');
+                const fixedBuffer = await postProcessExcel(standardBuffer, univerData);
+                log('Post-processing complete', { size: fixedBuffer.byteLength });
+
+                // Create download links
+                createDownloads(standardBuffer, fixedBuffer);
+                
+                // Update UI
+                status.className = 'status success show';
+                status.textContent = 'Processing complete! Files ready for download.';
+                results.style.display = 'block';
+                
+                log('=== PROCESSING COMPLETE ===');
+                
+            } catch (error) {
+                log('ERROR:', error.message);
+                status.className = 'status error show';
+                status.textContent = 'Error: ' + error.message;
+            }
+        }
+
+        // Analyze Univer data
+        function analyzeUniverData(data) {
+            const result = {
+                sheets: 0,
+                definedNames: 0,
+                arrayFormulas: 0,
+                transposeFormulas: 0,
+                borderStyles: 0
+            };
+
+            // Count sheets
+            result.sheets = data.sheetOrder ? data.sheetOrder.length : 0;
+
+            // Count defined names - check multiple locations
+            if (data.namedRanges) {
+                result.definedNames = Object.keys(data.namedRanges).length;
+            }
+            
+            // Also check resources for defined names
+            if (data.resources) {
+                const definedNameResource = data.resources.find(r => r.name === 'SHEET_DEFINED_NAME_PLUGIN');
+                if (definedNameResource) {
+                    try {
+                        const names = JSON.parse(definedNameResource.data);
+                        result.definedNames = Object.keys(names).length;
+                        log('Found defined names in resources', { count: result.definedNames });
+                    } catch (e) {
+                        log('Error parsing defined names from resources', e.message);
+                    }
+                }
+            }
+
+            // Count array formulas and TRANSPOSE
+            for (let sheetId in data.sheets) {
+                const sheet = data.sheets[sheetId];
+                if (sheet.arrayFormulas) {
+                    result.arrayFormulas += sheet.arrayFormulas.length;
+                    sheet.arrayFormulas.forEach(af => {
+                        if (af.formula && af.formula.toUpperCase().includes('TRANSPOSE')) {
+                            result.transposeFormulas++;
+                        }
+                    });
+                }
+            }
+
+            // Count border styles
+            if (data.styles) {
+                for (let styleId in data.styles) {
+                    if (data.styles[styleId]?.bd) {
+                        result.borderStyles++;
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        // Post-processing function
+        async function postProcessExcel(buffer, univerData) {
+            const zip = new JSZip();
+            await zip.loadAsync(buffer);
+            
+            let fixCount = { formulas: 0, names: 0, borders: 0 };
+
+            // 1. Fix array formulas
+            log('Fixing array formulas...');
+            const worksheetFiles = Object.keys(zip.files).filter(f => f.match(/xl\/worksheets\/sheet\d+\.xml/));
+            
+            for (const sheetPath of worksheetFiles) {
+                let sheetXml = await zip.file(sheetPath).async('string');
+                const originalLength = sheetXml.length;
+                
+                // Fix TRANSPOSE and other array formulas
+                sheetXml = sheetXml.replace(
+                    /<c([^>]*?)><f>([^<]*(?:TRANSPOSE|FILTER|SORT|UNIQUE)[^<]*)<\/f>/gi,
+                    (match, attrs, formula) => {
+                        const cellMatch = attrs.match(/r="([A-Z]+)(\d+)"/);
+                        if (!cellMatch) return match;
+                        
+                        fixCount.formulas++;
+                        const col = cellMatch[1];
+                        const row = cellMatch[2];
+                        const spillRange = `${col}${row}:${col}${row}`;
+                        return `<c${attrs}><f t="array" ref="${spillRange}">${formula}</f>`;
+                    }
+                );
+                
+                if (sheetXml.length !== originalLength) {
+                    zip.file(sheetPath, sheetXml);
+                }
+            }
+            log(`Fixed ${fixCount.formulas} array formulas`);
+
+            // 2. Add defined names
+            log('Adding defined names...');
+            let workbookXml = await zip.file('xl/workbook.xml').async('string');
+            
+            // Extract defined names from resources
+            let definedNames = null;
+            if (univerData.resources) {
+                const definedNameResource = univerData.resources.find(r => r.name === 'SHEET_DEFINED_NAME_PLUGIN');
+                if (definedNameResource) {
+                    try {
+                        definedNames = JSON.parse(definedNameResource.data);
+                        log(`Found ${Object.keys(definedNames).length} defined names in resources`);
+                    } catch (e) {
+                        log('Error parsing defined names', e.message);
+                    }
+                }
+            }
+            
+            // Fallback to namedRanges if no resources
+            if (!definedNames && univerData.namedRanges) {
+                definedNames = univerData.namedRanges;
+            }
+            
+            if (!workbookXml.includes('<definedNames>') && definedNames) {
+                let definedNamesXml = '    <definedNames>\n';
+                
+                Object.entries(definedNames).forEach(([id, nameObj]) => {
+                    // Handle both formats: direct string or object with properties
+                    if (typeof nameObj === 'string') {
+                        // Simple format: id -> reference string
+                        definedNamesXml += `        <definedName name="${id}">${nameObj}</definedName>\n`;
+                        fixCount.names++;
+                    } else if (nameObj && nameObj.name && nameObj.formulaOrRefString) {
+                        // Object format from LuckyDefineName
+                        definedNamesXml += `        <definedName name="${nameObj.name}">${nameObj.formulaOrRefString}</definedName>\n`;
+                        fixCount.names++;
+                    }
+                });
+                
+                definedNamesXml += '    </definedNames>';
+                workbookXml = workbookXml.replace('</workbook>', definedNamesXml + '\n</workbook>');
+                zip.file('xl/workbook.xml', workbookXml);
+            }
+            log(`Added ${fixCount.names} defined names`);
+
+            // 3. Fix borders
+            log('Fixing border styles...');
+            if (univerData.styles) {
+                const borderConfigs = new Map();
+                let borderIndex = 1;
+                
+                for (const styleId in univerData.styles) {
+                    const style = univerData.styles[styleId];
+                    if (style?.bd) {
+                        const borderKey = JSON.stringify(style.bd);
+                        if (!borderConfigs.has(borderKey)) {
+                            borderConfigs.set(borderKey, {
+                                index: borderIndex++,
+                                config: style.bd
+                            });
+                        }
+                    }
+                }
+                
+                if (borderConfigs.size > 0) {
+                    let stylesXml = await zip.file('xl/styles.xml').async('string');
+                    
+                    // Build new borders section
+                    let newBordersXml = `<borders count="${borderConfigs.size + 1}">`;
+                    newBordersXml += '<border><left/><right/><top/><bottom/><diagonal/></border>';
+                    
+                    const styleMap = {1:'thin', 2:'hair', 7:'double', 13:'thick'};
+                    
+                    for (const [key, value] of borderConfigs) {
+                        const bd = value.config;
+                        newBordersXml += '<border>';
+                        
+                        ['l', 'r', 't', 'b'].forEach(side => {
+                            const sideMap = {l:'left', r:'right', t:'top', b:'bottom'};
+                            const sideName = sideMap[side];
+                            
+                            if (bd[side]) {
+                                const style = styleMap[bd[side].s] || 'thin';
+                                newBordersXml += `<${sideName} style="${style}">`;
+                                if (bd[side].cl?.rgb) {
+                                    const rgb = bd[side].cl.rgb.replace('#', '');
+                                    newBordersXml += `<color rgb="FF${rgb.toUpperCase()}"/>`;
+                                }
+                                newBordersXml += `</${sideName}>`;
+                            } else {
+                                newBordersXml += `<${sideName}/>`;
+                            }
+                        });
+                        
+                        newBordersXml += '<diagonal/></border>';
+                    }
+                    
+                    newBordersXml += '</borders>';
+                    stylesXml = stylesXml.replace(/<borders[^>]*>.*?<\/borders>/s, newBordersXml);
+                    zip.file('xl/styles.xml', stylesXml);
+                    fixCount.borders = borderConfigs.size;
+                }
+            }
+            log(`Fixed ${fixCount.borders} border styles`);
+            
+            log('Fix summary', fixCount);
+            return await zip.generateAsync({ type: 'arraybuffer' });
+        }
+
+        // Create download links
+        function createDownloads(standardBuffer, fixedBuffer) {
+            const standardBlob = new Blob([standardBuffer], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+            const standardUrl = URL.createObjectURL(standardBlob);
+            
+            const fixedBlob = new Blob([fixedBuffer], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+            const fixedUrl = URL.createObjectURL(fixedBlob);
+            
+            downloads.innerHTML = `
+                <p>Download your files:</p>
+                <a href="${standardUrl}" download="standard-export.xlsx" class="download-btn">
+                    Standard Export (with issues)
+                </a>
+                <a href="${fixedUrl}" download="fixed-export.xlsx" class="download-btn primary">
+                    Fixed Export (recommended)
+                </a>
+                <p style="margin-top: 20px; color: #666;">
+                    Test the fixed export in Excel. It should have:<br>
+                    ✅ No @ symbols in TRANSPOSE formulas<br>
+                    ✅ Working defined names<br>
+                    ✅ Proper border styles
+                </p>
+            `;
+            
+            log('Download links created');
+        }
+    </script>
+</body>
+</html>

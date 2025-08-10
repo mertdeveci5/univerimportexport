@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Import Analysis</title>
+    <script src="./dist/luckyexcel.umd.js"></script>
+</head>
+<body>
+    <h1>Import Analysis - Check what Univer receives</h1>
+    <input type="file" id="fileInput" accept=".xlsx" />
+    <pre id="output"></pre>
+    
+    <script>
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                console.log('=== IMPORT ANALYSIS ===');
+                
+                LuckyExcel.transformExcelToUniver(
+                    file,
+                    function(workbookData) {
+                        console.log('✅ Import complete!');
+                        console.log('Full workbook data:', workbookData);
+                        
+                        let report = 'IMPORT ANALYSIS REPORT\n';
+                        report += '======================\n\n';
+                        
+                        // 1. Check for defined names
+                        report += '1. DEFINED NAMES\n';
+                        report += '----------------\n';
+                        if (workbookData.namedRanges) {
+                            report += `Found ${Object.keys(workbookData.namedRanges).length} named ranges:\n`;
+                            Object.keys(workbookData.namedRanges).slice(0, 5).forEach(name => {
+                                report += `  - ${name}: ${JSON.stringify(workbookData.namedRanges[name])}\n`;
+                            });
+                        } else if (workbookData.definedNames) {
+                            report += `Found ${workbookData.definedNames.length} defined names:\n`;
+                            workbookData.definedNames.slice(0, 5).forEach(name => {
+                                report += `  - ${JSON.stringify(name)}\n`;
+                            });
+                        } else {
+                            report += 'No defined names found in workbook data\n';
+                            // Check if they might be elsewhere
+                            console.log('Checking for named ranges in other locations...');
+                            for (let key in workbookData) {
+                                if (key.toLowerCase().includes('name') || key.toLowerCase().includes('range')) {
+                                    console.log(`Found ${key}:`, workbookData[key]);
+                                }
+                            }
+                        }
+                        
+                        // 2. Check DCF sheet
+                        report += '\n2. DCF SHEET ANALYSIS\n';
+                        report += '--------------------\n';
+                        
+                        let dcfSheet = null;
+                        for (let sheetId in workbookData.sheets) {
+                            if (workbookData.sheets[sheetId].name === 'DCF') {
+                                dcfSheet = workbookData.sheets[sheetId];
+                                break;
+                            }
+                        }
+                        
+                        if (dcfSheet) {
+                            // Check array formulas
+                            report += `Array formulas: ${dcfSheet.arrayFormulas ? dcfSheet.arrayFormulas.length : 0}\n`;
+                            if (dcfSheet.arrayFormulas && dcfSheet.arrayFormulas.length > 0) {
+                                const transposeCount = dcfSheet.arrayFormulas.filter(af => 
+                                    af.formula && af.formula.toUpperCase().includes('TRANSPOSE')
+                                ).length;
+                                report += `  - TRANSPOSE formulas: ${transposeCount}\n`;
+                            }
+                            
+                            // Check T83 specifically
+                            const row82 = dcfSheet.cellData && dcfSheet.cellData[82];
+                            if (row82) {
+                                const t83 = row82[19]; // T83
+                                if (t83) {
+                                    report += '\nT83 cell data:\n';
+                                    report += `  Formula: ${t83.f || 'none'}\n`;
+                                    report += `  Formula ID (si): ${t83.si || 'none'}\n`;
+                                    report += `  Value: ${t83.v}\n`;
+                                }
+                            }
+                        }
+                        
+                        // 3. Check styles
+                        report += '\n3. STYLES ANALYSIS\n';
+                        report += '------------------\n';
+                        if (workbookData.styles) {
+                            report += `Styles object exists\n`;
+                            let borderStyleCount = 0;
+                            
+                            // Count styles with borders
+                            for (let styleId in workbookData.styles) {
+                                const style = workbookData.styles[styleId];
+                                if (style && style.bd) {
+                                    borderStyleCount++;
+                                }
+                            }
+                            report += `Styles with borders: ${borderStyleCount}\n`;
+                        } else {
+                            report += 'No styles object found\n';
+                        }
+                        
+                        // 4. Check for borders in DCF cells
+                        if (dcfSheet && dcfSheet.cellData) {
+                            let cellsWithBorders = 0;
+                            let totalCells = 0;
+                            
+                            for (let row in dcfSheet.cellData) {
+                                for (let col in dcfSheet.cellData[row]) {
+                                    totalCells++;
+                                    const cell = dcfSheet.cellData[row][col];
+                                    if (cell.s) {
+                                        // Check if style has border
+                                        const style = typeof cell.s === 'object' ? cell.s : workbookData.styles?.[cell.s];
+                                        if (style && style.bd) {
+                                            cellsWithBorders++;
+                                        }
+                                    }
+                                }
+                            }
+                            report += `\nDCF cells with border styles: ${cellsWithBorders}/${totalCells}\n`;
+                        }
+                        
+                        // 5. Check resources
+                        report += '\n4. RESOURCES\n';
+                        report += '------------\n';
+                        if (workbookData.resources) {
+                            report += `Resources found: ${workbookData.resources.length}\n`;
+                            workbookData.resources.forEach(resource => {
+                                report += `  - ${resource.name || resource.type || 'unknown'}\n`;
+                            });
+                        } else {
+                            report += 'No resources found\n';
+                        }
+                        
+                        document.getElementById('output').textContent = report;
+                        
+                        // Export to see what happens
+                        console.log('\n=== Now exporting back ===');
+                        LuckyExcel.transformUniverToExcel({
+                            snapshot: workbookData,
+                            fileName: 'reexport-test.xlsx',
+                            success: function(buffer) {
+                                console.log('✅ Export complete');
+                                
+                                // Create download link
+                                const blob = new Blob([buffer], { 
+                                    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+                                });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = 'reexport-test.xlsx';
+                                a.textContent = '📥 Download re-exported file';
+                                a.style.display = 'block';
+                                a.style.marginTop = '20px';
+                                document.body.appendChild(a);
+                            },
+                            error: function(err) {
+                                console.error('Export error:', err);
+                            }
+                        });
+                    },
+                    function(err) {
+                        console.error('Import error:', err);
+                    }
+                );
+            }
+        });
+    </script>
+</body>
+</html>

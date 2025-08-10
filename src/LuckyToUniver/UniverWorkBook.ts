@@ -91,6 +91,9 @@ export class UniverWorkBook implements IWorkbookData {
         this.handleFilter(sheetsObj);
         this.sheetOrder = order;
 
+        // Collect all styles from sheets into registry
+        this.collectStyles(workSheets);
+
         this.sheets = workSheets;
     }
 
@@ -310,4 +313,56 @@ export class UniverWorkBook implements IWorkbookData {
             data: JSON.stringify(obj),
         });
     };
+
+    private collectStyles(workSheets: Sheets): void {
+        const styleRegistry: Record<string, IStyleData> = {};
+        let styleIdCounter = 0;
+        
+        debug.log('🎨 [UniverWorkBook] Starting style collection from sheets');
+        
+        // Iterate through all sheets
+        for (const sheetId in workSheets) {
+            const sheet = workSheets[sheetId];
+            if (!sheet.cellData) continue;
+            
+            let sheetStyleCount = 0;
+            
+            // Iterate through all cells
+            Object.values(sheet.cellData).forEach((rowData: any) => {
+                Object.values(rowData).forEach((cell: any) => {
+                    if (cell.s && typeof cell.s === 'object') {
+                        // This cell has an inline style object
+                        const styleKey = JSON.stringify(cell.s);
+                        
+                        // Check if we've seen this style before
+                        let styleId = Object.keys(styleRegistry).find(
+                            id => JSON.stringify(styleRegistry[id]) === styleKey
+                        );
+                        
+                        if (!styleId) {
+                            // New style, add to registry
+                            styleId = `style_${styleIdCounter++}`;
+                            styleRegistry[styleId] = cell.s;
+                            sheetStyleCount++;
+                        }
+                        
+                        // Replace inline style with style ID reference
+                        cell.s = styleId;
+                    }
+                });
+            });
+            
+            if (sheetStyleCount > 0) {
+                debug.log(`  Sheet ${sheet.name || sheetId}: ${sheetStyleCount} unique styles`);
+            }
+        }
+        
+        this.styles = styleRegistry;
+        
+        const borderCount = Object.values(styleRegistry).filter((s: any) => s.bd).length;
+        debug.log('📊 [UniverWorkBook] Style collection complete:', {
+            totalStyles: Object.keys(styleRegistry).length,
+            stylesWithBorders: borderCount
+        });
+    }
 }

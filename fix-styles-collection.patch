@@ -1,0 +1,76 @@
+--- Fix for UniverWorkBook.ts to collect styles from sheets ---
+
+The problem: UniverWorkBook never sets this.styles, so all cell styles (including borders) are lost during export.
+
+The solution: After creating all sheets, collect unique styles from all cells and build a styles registry.
+
+Add this method to UniverWorkBook class:
+
+```typescript
+private collectStyles(workSheets: Sheets): void {
+    const styleRegistry: Record<string, IStyleData> = {};
+    let styleIdCounter = 0;
+    
+    // Iterate through all sheets
+    for (const sheetId in workSheets) {
+        const sheet = workSheets[sheetId];
+        if (!sheet.cellData) continue;
+        
+        // Iterate through all cells
+        Object.values(sheet.cellData).forEach((rowData: any) => {
+            Object.values(rowData).forEach((cell: any) => {
+                if (cell.s && typeof cell.s === 'object') {
+                    // This cell has an inline style object
+                    const styleKey = JSON.stringify(cell.s);
+                    
+                    // Check if we've seen this style before
+                    let styleId = Object.keys(styleRegistry).find(
+                        id => JSON.stringify(styleRegistry[id]) === styleKey
+                    );
+                    
+                    if (!styleId) {
+                        // New style, add to registry
+                        styleId = `style_${styleIdCounter++}`;
+                        styleRegistry[styleId] = cell.s;
+                    }
+                    
+                    // Replace inline style with style ID reference
+                    cell.s = styleId;
+                }
+            });
+        });
+    }
+    
+    this.styles = styleRegistry;
+    debug.log('📊 [UniverWorkBook] Collected styles:', {
+        count: Object.keys(styleRegistry).length,
+        hasBorders: Object.values(styleRegistry).some((s: any) => s.bd)
+    });
+}
+```
+
+Then call it in the constructor after creating sheets:
+
+```typescript
+constructor(file: ILuckyFile) {
+    // ... existing code ...
+    
+    sheets
+        .sort((a: IluckySheet, b: IluckySheet) => Number(a.order) - Number(b.order))
+        .forEach((d: IluckySheet) => {
+            // ... existing sheet creation ...
+        });
+
+    // Collect all styles from sheets into registry
+    this.collectStyles(workSheets);  // <-- ADD THIS LINE
+    
+    // ... rest of existing code ...
+}
+```
+
+This will:
+1. Iterate through all cells in all sheets
+2. Find unique style objects
+3. Create a style registry with unique IDs
+4. Replace inline styles with style ID references
+5. Set this.styles so it gets exported properly

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Debug Import Test</title>
+    <script src="./dist/luckyexcel.umd.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        button { padding: 10px 20px; margin: 10px 0; }
+        pre { background: #f5f5f5; padding: 10px; overflow: auto; max-height: 600px; }
+        .section { margin: 20px 0; border: 1px solid #ddd; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Debug Import Test</h1>
+    
+    <button id="selectBtn">Select Excel File</button>
+    <input type="file" id="fileInput" accept=".xlsx" style="display: none;">
+    
+    <div id="output"></div>
+
+    <script>
+        const selectBtn = document.getElementById('selectBtn');
+        const fileInput = document.getElementById('fileInput');
+        const output = document.getElementById('output');
+        
+        selectBtn.addEventListener('click', () => fileInput.click());
+        
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                processFile(file);
+            }
+        });
+        
+        async function processFile(file) {
+            output.innerHTML = '<h2>Processing...</h2>';
+            
+            try {
+                // Import to Univer
+                const univerData = await new Promise((resolve, reject) => {
+                    LuckyExcel.transformExcelToUniver(
+                        file,
+                        (data) => resolve(data),
+                        (error) => reject(error)
+                    );
+                });
+                
+                console.log('Full Univer data:', univerData);
+                
+                let html = '';
+                
+                // 1. Check for defined names in all possible locations
+                html += '<div class="section">';
+                html += '<h3>1. Defined Names Search</h3>';
+                html += '<pre>';
+                
+                // Check direct properties
+                html += 'Direct properties:\n';
+                html += `  univerData.namedRanges: ${JSON.stringify(univerData.namedRanges, null, 2)}\n`;
+                html += `  univerData.definedNames: ${JSON.stringify(univerData.definedNames, null, 2)}\n`;
+                html += `  univerData.names: ${JSON.stringify(univerData.names, null, 2)}\n\n`;
+                
+                // Check resources
+                html += 'Resources array:\n';
+                if (univerData.resources) {
+                    html += `  Found ${univerData.resources.length} resources\n`;
+                    univerData.resources.forEach(res => {
+                        html += `  - ${res.name}\n`;
+                        if (res.name === 'SHEET_DEFINED_NAME_PLUGIN') {
+                            html += `    Data: ${res.data}\n`;
+                            try {
+                                const parsed = JSON.parse(res.data);
+                                html += `    Parsed (${Object.keys(parsed).length} names): ${JSON.stringify(parsed, null, 2)}\n`;
+                            } catch(e) {
+                                html += `    Parse error: ${e.message}\n`;
+                            }
+                        }
+                    });
+                } else {
+                    html += '  No resources array found\n';
+                }
+                
+                html += '</pre></div>';
+                
+                // 2. Check styles and borders
+                html += '<div class="section">';
+                html += '<h3>2. Styles and Borders</h3>';
+                html += '<pre>';
+                
+                if (univerData.styles) {
+                    const styleIds = Object.keys(univerData.styles);
+                    html += `Found ${styleIds.length} styles\n`;
+                    
+                    let borderCount = 0;
+                    let borderSamples = [];
+                    
+                    styleIds.forEach(id => {
+                        const style = univerData.styles[id];
+                        if (style.bd) {
+                            borderCount++;
+                            if (borderSamples.length < 3) {
+                                borderSamples.push({ id, border: style.bd });
+                            }
+                        }
+                    });
+                    
+                    html += `Styles with borders: ${borderCount}\n\n`;
+                    
+                    if (borderSamples.length > 0) {
+                        html += 'Sample borders:\n';
+                        borderSamples.forEach(sample => {
+                            html += `  Style ${sample.id}: ${JSON.stringify(sample.border, null, 2)}\n`;
+                        });
+                    }
+                } else {
+                    html += 'No styles object found\n';
+                }
+                
+                html += '</pre></div>';
+                
+                // 3. Check array formulas
+                html += '<div class="section">';
+                html += '<h3>3. Array Formulas</h3>';
+                html += '<pre>';
+                
+                for (let sheetId in univerData.sheets) {
+                    const sheet = univerData.sheets[sheetId];
+                    html += `\nSheet: ${sheet.name || sheetId}\n`;
+                    
+                    if (sheet.arrayFormulas) {
+                        html += `  Array formulas: ${sheet.arrayFormulas.length}\n`;
+                        sheet.arrayFormulas.slice(0, 3).forEach(af => {
+                            html += `    - ${af.formula} (id: ${af.formulaId})\n`;
+                        });
+                    }
+                    
+                    // Check for TRANSPOSE in cellData
+                    let transposeCount = 0;
+                    if (sheet.cellData) {
+                        for (let row in sheet.cellData) {
+                            for (let col in sheet.cellData[row]) {
+                                const cell = sheet.cellData[row][col];
+                                if (cell.f && cell.f.includes('TRANSPOSE')) {
+                                    transposeCount++;
+                                    if (transposeCount <= 2) {
+                                        html += `  TRANSPOSE at [${row},${col}]: ${cell.f}\n`;
+                                        html += `    si: ${cell.si}, t: ${cell.t}\n`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (transposeCount > 0) {
+                        html += `  Total TRANSPOSE formulas in cellData: ${transposeCount}\n`;
+                    }
+                }
+                
+                html += '</pre></div>';
+                
+                // 4. Export and analyze
+                html += '<div class="section">';
+                html += '<h3>4. Export Analysis</h3>';
+                html += '<pre>';
+                
+                const exportBuffer = await new Promise((resolve, reject) => {
+                    LuckyExcel.transformUniverToExcel({
+                        snapshot: univerData,
+                        fileName: 'test-export.xlsx',
+                        getBuffer: true,
+                        success: (buffer) => resolve(buffer),
+                        error: (err) => reject(err)
+                    });
+                });
+                
+                html += `Export successful, buffer size: ${exportBuffer.byteLength} bytes\n`;
+                
+                // Create download link
+                const blob = new Blob([exportBuffer], {
+                    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                });
+                const url = URL.createObjectURL(blob);
+                
+                html += `\n<a href="${url}" download="debug-export.xlsx">Download Export File</a>\n`;
+                
+                html += '</pre></div>';
+                
+                output.innerHTML = html;
+                
+            } catch (error) {
+                output.innerHTML = `<div class="section"><h3>Error</h3><pre>${error.message}\n${error.stack}</pre></div>`;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -141,31 +141,43 @@ export class ArrayFormulaHandler {
                 )
             });
 
-            // CRITICAL FIX: Don't use fillFormula for TRANSPOSE as it adds @ symbols
-            // Set the formula only on the master cell, letting Excel handle the spill
-            
-            const masterRow = arrayFormula.masterRow + 1;  // Convert to 1-based
-            const masterCol = arrayFormula.masterCol + 1;  // Convert to 1-based
-            const masterCell = worksheet.getCell(masterRow, masterCol);
-            
             // Remove any @ symbols from the formula before setting
             const finalFormula = cleanFormula
                 .replace(/@TRANSPOSE/gi, 'TRANSPOSE')
                 .replace(/@(\$?[A-Z]+\$?\d+)/g, '$1')
                 .replace(/@(\$?[A-Z]+\$?\d+:\$?[A-Z]+\$?\d+)/g, '$1');
             
-            // Set as a regular formula, not array formula
-            // This avoids ExcelJS adding @ symbols
-            masterCell.value = {
-                formula: finalFormula,
-                result: startCellValue
-            };
-            
-            debug.log('✅ [ArrayFormula] Applied TRANSPOSE without @ symbols:', {
-                formula: finalFormula,
-                cell: `${columnNumberToLetter(masterCol - 1)}${masterRow}`
-            });
-            return true;
+            // For TRANSPOSE and other dynamic array formulas, we need to use fillFormula
+            // to get the proper array formula XML attributes (t="array" and ref)
+            // even though ExcelJS might add @ symbols
+            try {
+                // Use fillFormula to create proper array formula
+                worksheet.fillFormula(
+                    rangeStr,  // e.g., "U83:W83"
+                    finalFormula,  // e.g., "TRANSPOSE($N$43:$N$45)"
+                    startCellValue  // Initial value
+                );
+                
+                debug.log('✅ [ArrayFormula] Applied array formula with fillFormula:', {
+                    formula: finalFormula,
+                    range: rangeStr
+                });
+                return true;
+            } catch (fillError) {
+                // Fallback to setting on master cell only
+                debug.warn('⚠️ [ArrayFormula] fillFormula failed, using fallback:', fillError);
+                
+                const masterRow = arrayFormula.masterRow + 1;  // Convert to 1-based
+                const masterCol = arrayFormula.masterCol + 1;  // Convert to 1-based
+                const masterCell = worksheet.getCell(masterRow, masterCol);
+                
+                masterCell.value = {
+                    formula: finalFormula,
+                    result: startCellValue
+                };
+                
+                return true;
+            }
 
         } catch (error: any) {
             debug.error('❌ [ArrayFormula] Error applying array formula:', {
