@@ -141,11 +141,30 @@ export class ArrayFormulaHandler {
                 )
             });
 
-            // Use ExcelJS fillFormula for array formulas
-            // This creates the array formula across the entire range
-            worksheet.fillFormula(rangeStr, cleanFormula, startCellValue);
+            // CRITICAL FIX: Don't use fillFormula for TRANSPOSE as it adds @ symbols
+            // Set the formula only on the master cell, letting Excel handle the spill
             
-            debug.log('✅ [ArrayFormula] Successfully applied array formula');
+            const masterRow = arrayFormula.masterRow + 1;  // Convert to 1-based
+            const masterCol = arrayFormula.masterCol + 1;  // Convert to 1-based
+            const masterCell = worksheet.getCell(masterRow, masterCol);
+            
+            // Remove any @ symbols from the formula before setting
+            const finalFormula = cleanFormula
+                .replace(/@TRANSPOSE/gi, 'TRANSPOSE')
+                .replace(/@(\$?[A-Z]+\$?\d+)/g, '$1')
+                .replace(/@(\$?[A-Z]+\$?\d+:\$?[A-Z]+\$?\d+)/g, '$1');
+            
+            // Set as a regular formula, not array formula
+            // This avoids ExcelJS adding @ symbols
+            masterCell.value = {
+                formula: finalFormula,
+                result: startCellValue
+            };
+            
+            debug.log('✅ [ArrayFormula] Applied TRANSPOSE without @ symbols:', {
+                formula: finalFormula,
+                cell: `${columnNumberToLetter(masterCol - 1)}${masterRow}`
+            });
             return true;
 
         } catch (error: any) {
