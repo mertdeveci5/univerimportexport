@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Debug TRANSPOSE Export</title>
+    <script src="./dist/luckyexcel.umd.js"></script>
+</head>
+<body>
+    <h1>Debug TRANSPOSE Export</h1>
+    <p>Open browser console to see debug output</p>
+    <input type="file" id="fileInput" accept=".xlsx" />
+    <pre id="output"></pre>
+    
+    <script>
+        // Enable debug mode
+        window.__DEBUG__ = true;
+        
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                console.log('🔥 Starting import...');
+                
+                LuckyExcel.transformExcelToUniver(
+                    file,
+                    function(workbookData) {
+                        console.log('✅ Import complete!');
+                        console.log('📊 Full workbook data:', workbookData);
+                        
+                        // Find DCF sheet
+                        const sheets = workbookData.sheets;
+                        let dcfSheet = null;
+                        let dcfSheetId = null;
+                        
+                        for (let sheetId in sheets) {
+                            if (sheets[sheetId].name === 'DCF') {
+                                dcfSheet = sheets[sheetId];
+                                dcfSheetId = sheetId;
+                                break;
+                            }
+                        }
+                        
+                        if (!dcfSheet) {
+                            console.log('❌ DCF sheet not found!');
+                            return;
+                        }
+                        
+                        console.log('✅ Found DCF sheet:', dcfSheetId);
+                        console.log('📋 DCF sheet data:', dcfSheet);
+                        
+                        // Check for arrayFormulas
+                        if (dcfSheet.arrayFormulas) {
+                            console.log('🔢 Array formulas found:', dcfSheet.arrayFormulas);
+                            document.getElementById('output').textContent = 
+                                'Array Formulas:\n' + JSON.stringify(dcfSheet.arrayFormulas, null, 2);
+                        } else {
+                            console.log('⚠️ No array formulas in DCF sheet');
+                            document.getElementById('output').textContent = 'No array formulas found';
+                        }
+                        
+                        // Check specific cells
+                        const row82 = dcfSheet.cellData && dcfSheet.cellData[82];
+                        if (row82) {
+                            console.log('\n📍 Row 83 cells:');
+                            if (row82[19]) { // T83
+                                console.log('T83:', row82[19]);
+                                if (row82[19].f && row82[19].f.includes('TRANSPOSE')) {
+                                    console.log('  ✅ Has TRANSPOSE formula');
+                                }
+                            }
+                            if (row82[22]) { // W83
+                                console.log('W83:', row82[22]);
+                                if (row82[22].f && row82[22].f.includes('TRANSPOSE')) {
+                                    console.log('  ✅ Has TRANSPOSE formula');
+                                }
+                            }
+                            if (row82[25]) { // Z83
+                                console.log('Z83:', row82[25]);
+                                if (row82[25].f && row82[25].f.includes('TRANSPOSE')) {
+                                    console.log('  ✅ Has TRANSPOSE formula');
+                                }
+                            }
+                        }
+                        
+                        // Now export
+                        console.log('\n🚀 Starting export...');
+                        LuckyExcel.transformUniverToExcel({
+                            snapshot: workbookData,
+                            fileName: 'debug-export.xlsx',
+                            success: function(buffer) {
+                                console.log('✅ Export complete!');
+                                
+                                // Create download link
+                                const blob = new Blob([buffer], { 
+                                    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+                                });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = 'debug-export.xlsx';
+                                a.textContent = 'Download exported file';
+                                a.style.display = 'block';
+                                a.style.marginTop = '20px';
+                                document.body.appendChild(a);
+                            },
+                            error: function(err) {
+                                console.error('❌ Export error:', err);
+                            }
+                        });
+                    },
+                    function(err) {
+                        console.error('❌ Import error:', err);
+                    }
+                );
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Test TRANSPOSE Import and Export</title>
+    <script src="./dist/luckyexcel.umd.js"></script>
+</head>
+<body>
+    <h1>Test TRANSPOSE Import and Export</h1>
+    <input type="file" id="fileInput" accept=".xlsx" />
+    <pre id="output"></pre>
+    
+    <script>
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                console.log('=== Starting import ===');
+                
+                LuckyExcel.transformExcelToUniver(
+                    file,
+                    function(workbookData) {
+                        console.log('Import complete!');
+                        
+                        // Find DCF sheet
+                        let dcfSheet = null;
+                        for (let sheetId in workbookData.sheets) {
+                            if (workbookData.sheets[sheetId].name === 'DCF') {
+                                dcfSheet = workbookData.sheets[sheetId];
+                                break;
+                            }
+                        }
+                        
+                        if (!dcfSheet) {
+                            console.log('DCF sheet not found!');
+                            return;
+                        }
+                        
+                        console.log('=== DCF Sheet Analysis ===');
+                        
+                        // Check if arrayFormulas exist
+                        console.log('Array formulas:', dcfSheet.arrayFormulas);
+                        
+                        // Check T83 (row 82, col 19)
+                        const row82 = dcfSheet.cellData && dcfSheet.cellData[82];
+                        if (row82) {
+                            const t83 = row82[19]; // T83
+                            const u83 = row82[20]; // U83
+                            const v83 = row82[21]; // V83
+                            const w83 = row82[22]; // W83
+                            
+                            console.log('\n=== Cell Data ===');
+                            console.log('T83 (19,82):', t83);
+                            console.log('U83 (20,82):', u83);
+                            console.log('V83 (21,82):', v83);
+                            console.log('W83 (22,82):', w83);
+                            
+                            // Display in output
+                            document.getElementById('output').textContent = 
+                                'T83: ' + JSON.stringify(t83, null, 2) + '\n\n' +
+                                'Array Formulas: ' + JSON.stringify(dcfSheet.arrayFormulas || [], null, 2);
+                        }
+                        
+                        // Now export and check what happens
+                        console.log('\n=== Starting export ===');
+                        LuckyExcel.transformUniverToExcel({
+                            snapshot: workbookData,
+                            fileName: 'test-transpose-export.xlsx',
+                            success: function(buffer) {
+                                console.log('Export complete!');
+                                
+                                // Create download link
+                                const blob = new Blob([buffer], { 
+                                    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+                                });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = 'test-transpose-export.xlsx';
+                                a.textContent = 'Download exported file';
+                                a.style.display = 'block';
+                                a.style.marginTop = '20px';
+                                document.body.appendChild(a);
+                                
+                                console.log('✅ Download link created. Check the exported file for @ symbols.');
+                            },
+                            error: function(err) {
+                                console.error('Export error:', err);
+                            }
+                        });
+                    },
+                    function(err) {
+                        console.error('Import error:', err);
+                    }
+                );
+            }
+        });
+    </script>
+</body>
+</html>

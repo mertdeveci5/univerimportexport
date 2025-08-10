@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Test TRANSPOSE Export</title>
+    <script src="./dist/luckyexcel.umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <h1>Test TRANSPOSE Formula Export</h1>
+    <input type="file" id="fileInput" accept=".xlsx" />
+    <pre id="output"></pre>
+    
+    <script>
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                console.log('Starting import...');
+                
+                LuckyExcel.transformExcelToUniver(
+                    file,
+                    function(workbookData) {
+                        console.log('Import complete!');
+                        
+                        // Find DCF sheet
+                        const sheets = workbookData.sheets;
+                        let dcfSheet = null;
+                        for (let sheetId in sheets) {
+                            if (sheets[sheetId].name === 'DCF') {
+                                dcfSheet = sheets[sheetId];
+                                break;
+                            }
+                        }
+                        
+                        if (!dcfSheet) {
+                            console.log('DCF sheet not found!');
+                            return;
+                        }
+                        
+                        console.log('Found DCF sheet, checking TRANSPOSE formulas:');
+                        
+                        // Check row 83 (index 82)
+                        const row82 = dcfSheet.cellData && dcfSheet.cellData[82];
+                        if (row82) {
+                            // T83 = column 19, W83 = column 22, Z83 = column 25
+                            console.log('\nRow 83 formulas:');
+                            if (row82[19]) {
+                                console.log('T83 (col 19):', row82[19]);
+                                document.getElementById('output').textContent += 'T83: ' + JSON.stringify(row82[19], null, 2) + '\n\n';
+                            }
+                            if (row82[22]) {
+                                console.log('W83 (col 22):', row82[22]);
+                                document.getElementById('output').textContent += 'W83: ' + JSON.stringify(row82[22], null, 2) + '\n\n';
+                            }
+                            if (row82[25]) {
+                                console.log('Z83 (col 25):', row82[25]);
+                                document.getElementById('output').textContent += 'Z83: ' + JSON.stringify(row82[25], null, 2) + '\n\n';
+                            }
+                        }
+                        
+                        // Now export back to Excel
+                        console.log('\n=== Exporting back to Excel ===');
+                        LuckyExcel.transformUniverToExcel({
+                            snapshot: workbookData,
+                            fileName: 'test-transpose-export.xlsx',
+                            success: function(buffer) {
+                                console.log('Export complete!');
+                                
+                                // Read the exported file to check formulas
+                                const workbook = XLSX.read(buffer, {type: 'array'});
+                                const dcfSheet = workbook.Sheets['DCF'];
+                                
+                                if (dcfSheet) {
+                                    console.log('\n=== Checking exported TRANSPOSE formulas ===');
+                                    document.getElementById('output').textContent += '\n=== EXPORTED FORMULAS ===\n';
+                                    
+                                    const checkCells = ['T83', 'W83', 'Z83', 'T84', 'T100', 'W100', 'Z100'];
+                                    for (let cell of checkCells) {
+                                        if (dcfSheet[cell] && dcfSheet[cell].f) {
+                                            const formula = dcfSheet[cell].f;
+                                            console.log(`${cell}: ${formula}`);
+                                            document.getElementById('output').textContent += `${cell}: ${formula}\n`;
+                                            
+                                            if (formula.includes('@')) {
+                                                console.log(`  ⚠️ ${cell} contains @ symbol!`);
+                                                document.getElementById('output').textContent += `  ⚠️ Contains @ symbol!\n`;
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                // Create download link
+                                const blob = new Blob([buffer], { 
+                                    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+                                });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = 'test-transpose-export.xlsx';
+                                a.textContent = 'Download exported file';
+                                document.body.appendChild(a);
+                            },
+                            error: function(err) {
+                                console.error('Export error:', err);
+                            }
+                        });
+                    },
+                    function(err) {
+                        console.error('Import error:', err);
+                    }
+                );
+            }
+        });
+    </script>
+</body>
+</html>

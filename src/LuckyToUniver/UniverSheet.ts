@@ -148,11 +148,30 @@ export class UniverSheet extends UniverSheetBase {
             
             // Handle array formulas using Univer's shared formula system (si)
             let formulaId = null;
-            if (v.ft === 'array' && v.ref && f) {
+            
+            // Check if this is a TRANSPOSE formula (always treat as array formula)
+            const isTransposeFormula = f && /TRANSPOSE\s*\(/i.test(f);
+            
+            if ((v.ft === 'array' && v.ref && f) || isTransposeFormula) {
                 // Generate a unique ID for this array formula
                 formulaId = generateRandomId(6);
-                // Parse the array formula range (e.g., "A1:C3")
-                const arrayFormulaRange = this.parseRange(v.ref);
+                
+                // For TRANSPOSE, extract the range from the formula if no ref provided
+                let arrayFormulaRange = null;
+                if (v.ref) {
+                    arrayFormulaRange = this.parseRange(v.ref);
+                } else if (isTransposeFormula) {
+                    // For TRANSPOSE without ref, we need to determine the output range
+                    // This is a single cell that will spill to adjacent cells
+                    // We'll mark it as a 1x1 range and let Excel handle the spill
+                    arrayFormulaRange = {
+                        startRow: row.r,
+                        endRow: row.r,
+                        startCol: row.c,
+                        endCol: row.c
+                    };
+                }
+                
                 if (arrayFormulaRange) {
                     // Store array formula information for later processing
                     this.arrayFormulas.push({
