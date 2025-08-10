@@ -1,6 +1,6 @@
 {
   "name": "@mertdeveci55/univer-import-export",
-  "version": "0.1.38",
+  "version": "0.1.39",
   "description": "Excel/CSV import and export library for Univer spreadsheets with full format preservation",
   "private": false,
   "publishConfig": {
@@ -93,7 +93,6 @@
     "xlsx": "^0.18.5"
   },
   "dependencies": {
-    "@mertdeveci55/univer-import-export": "^0.1.24",
     "@progress/jszip-esm": "^1.0.4",
     "@univerjs/core": "^0.6.10",
     "@zwight/exceljs": "4.4.2",

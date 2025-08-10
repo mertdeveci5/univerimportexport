@@ -299,12 +299,33 @@ npm test
 
 ## Known Issues & Solutions
 
+### ✅ Resolved Issues
+
 | Issue | Solution | Version Fixed |
 |-------|----------|---------------|
 | Sheets with special characters (>>>) not importing | Escape/unescape mechanism in ReadXml.ts | v0.1.23+ |
 | AttributeList undefined errors | Defensive initialization | v0.1.21+ |
 | Duplicate sheets appearing | Removed hardcoded sheet additions | v0.1.24 |
 | TRANSPOSE formulas not working | Array formula support | v0.1.18+ |
+| Border styles not importing | Added style collection in UniverWorkBook | v0.1.38 |
+
+### ⚠️ Current Export Limitations (ExcelJS Library Issues)
+
+Due to limitations in the underlying ExcelJS library, the following features have known issues during **export**:
+
+| Issue | Root Cause | Impact | Workaround |
+|-------|-----------|---------|------------|
+| **Defined Names Missing** | ExcelJS `definedNames.add()` API is broken | Named ranges don't work in exported Excel files | Backend post-processing recommended |
+| **Array Formula Attributes** | Missing `t="array"` and `ref="range"` XML attributes | TRANSPOSE and other array formulas may not spill correctly | Use `fillFormula()` (adds @ symbols) or backend fix |
+
+**Import functionality works perfectly** - these limitations only affect export operations.
+
+#### Recommended Solutions
+1. **Backend Post-Processing**: Use Python/openpyxl to fix Excel files after ExcelJS export
+2. **Client-Side XML Manipulation**: Direct ZIP/XML modification (performance overhead)
+3. **Alternative Library**: Consider replacing ExcelJS in future versions
+
+> 📋 **Note**: We're actively working on backend integration to resolve these export limitations while maintaining all current functionality.
 
 ## Contributing
 
