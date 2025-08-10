@@ -240,7 +240,12 @@ function processCellData(worksheet: Worksheet, sheet: any, styles: any, snapshot
                 // This is a dependent cell - ExcelJS will handle it automatically
                 // Just set the value, not the formula
                 const target = worksheet.getCell(toOneBased(rowNum), toOneBased(colNum));
-                target.value = convertCellValue(cell);
+                // IMPORTANT: Only set value, never set si as formula!
+                // si is a shared formula ID, not a formula string
+                const cellValue = convertCellValue(cell);
+                if (cellValue !== undefined && cellValue !== null) {
+                    target.value = cellValue;
+                }
                 applyCellStyle(target, cell, styles);
                 continue;
             }
