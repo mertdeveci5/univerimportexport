@@ -1,651 +1,205 @@
-# Univer Import/Export Library - Export Implementation Plan
+# Import/Export Issues - Learnings and Plan
 
 ## Executive Summary
 
-This plan outlines the complete redesign of the export functionality to mirror the proven import process. Instead of using ExcelJS, we will reverse-engineer our existing import pipeline to create a robust, feature-complete export solution.
+Version 0.1.38 fixed critical style/border import issues, but fundamental limitations in the ExcelJS library prevent complete Excel compatibility. Two major issues remain that require post-processing to resolve.
 
-**Core Principle:** If we can import it, we can export it by reversing the process.
+## What's Fixed in v0.1.38 ✅
 
-## Current State Analysis
+### 1. Border Styles Import (FIXED)
+- **Problem**: 0 border styles were being imported (should be ~37)
+- **Root Cause**: `UniverWorkBook` never populated `this.styles` registry
+- **Solution**: Added `collectStyles()` method to collect all unique styles from cells
+- **Result**: Now correctly imports and exports 37 border styles
 
-### Import Pipeline (Working Well)
+## Remaining Issues ❌
+
+### IMPORT (Working Fine)
+- ✅ Defined names are imported correctly (stored in `resources` array)
+- ✅ Array formulas are imported correctly
+- ✅ Styles and borders now collected properly
+
+### EXPORT (Has Issues)
+
+#### 1. Defined Names Not Exported
+- **Symptom**: Excel files lose all defined names (e.g., "capexswitch", "circ", etc.)
+- **Root Cause**: ExcelJS's `definedNames.add()` API is completely broken
+  ```javascript
+  workbook.definedNames.add('TestName', 'Sheet1!$A$1');
+  console.log(workbook.definedNames.model); // Returns: [] (empty!)
+  ```
+- **Impact**: Named ranges don't work in exported Excel files
+
+#### 2. Array Formula Attributes Missing
+- **Symptom**: TRANSPOSE formulas missing `t="array"` and `ref="range"` XML attributes
+- **Root Cause**: ExcelJS doesn't support modern Excel dynamic array formulas
+- **Dilemma**: 
+  - Using `fillFormula()` → adds @ symbols (breaks formulas)
+  - Not using it → missing required XML attributes
+- **Impact**: Array formulas may not spill correctly in Excel
+
+## Root Cause Analysis
+
+### The Core Problem: ExcelJS Library Limitations
+
+ExcelJS (@zwight/exceljs@4.4.2) has fundamental limitations:
+
+1. **Broken APIs**: `definedNames.add()` doesn't actually add anything
+2. **Outdated Excel Support**: No proper support for Excel 365 dynamic arrays
+3. **No Post-Processing Hooks**: Can't modify XML before final output
+
+### Why This Matters
+
+Modern Excel files (Excel 365/2021) use features that ExcelJS was never designed to handle:
+- Dynamic array formulas (TRANSPOSE, FILTER, SORT, etc.)
+- Spill ranges
+- Complex defined names with workbook references
+
+## Potential Solutions
+
+### Option 1: Frontend Post-Processing (Current Workaround)
+```javascript
+// After ExcelJS export
+const zip = new JSZip();
+await zip.loadAsync(exportBuffer);
+// Modify XML files directly
+// Re-zip and download
 ```
-Excel File (.xlsx) 
-    ↓ [HandleZip.ts - JSZip]
-XML Files (workbook.xml, worksheets/*.xml, etc.)
-    ↓ [ReadXml.ts - Custom Parser with Special Character Handling]
-Parsed XML Elements
-    ↓ [LuckyFile.ts/LuckySheet.ts - Data Extraction]
-LuckySheet Format (Intermediate Representation)
-    ↓ [UniverWorkBook.ts/UniverSheet.ts - Format Conversion]
-Univer Format (IWorkbookData)
-```
+**Pros**: Works now, proven in test files
+**Cons**: Performance overhead, happens client-side
 
-### Export Pipeline (Current - Problematic)
-```
-Univer Format → ExcelJS → Excel File
-```
-**Issues:**
-- Different library (ExcelJS vs JSZip)
-- No intermediate LuckySheet format
-- Feature gaps (array formulas, special characters)
-- Inconsistent data flow
+### Option 2: Backend Post-Processing with Python/openpyxl 🐍
 
-### Proposed Export Pipeline (New)
-```
-Univer Format (IWorkbookData)
-    ↓ [UniverToLuckySheet - Reverse Conversion]
-LuckySheet Format (Intermediate Representation)
-    ↓ [LuckySheetToXml - XML Generation]
-XML Files (workbook.xml, worksheets/*.xml, etc.)
-    ↓ [ExcelBuilder.ts - JSZip]
-Excel File (.xlsx)
-```
+**Concept**: Use Python's openpyxl library to fix the Excel file after ExcelJS export
 
-## Implementation Phases
+```python
+# Backend endpoint (Python/Flask/FastAPI)
+from openpyxl import load_workbook
+import io
 
-### Phase 1: UniverToLuckySheet Conversion (Week 1)
-
-#### 1.1 Create Folder Structure
-```
-src/
-└── UniverToLuckySheet/
-    ├── index.ts                 # Main export interface
-    ├── LuckyWorkBook.ts         # IWorkbookData → ILuckyFile
-    ├── LuckySheetData.ts        # IWorksheetData → IluckySheet
-    ├── LuckyCell.ts             # ICellData → IluckySheetCelldata
-    ├── LuckyFormula.ts          # Formula handling (arrays, shared)
-    ├── LuckyStyle.ts            # IStyleData → LuckySheet styles
-    └── LuckyResources.ts        # Resources → charts, images, etc.
-```
-
-#### 1.2 LuckyWorkBook.ts - Core Conversion
-```typescript
-interface ConversionTasks {
-    // Basic workbook info
-    - Extract workbook name, appVersion
-    - Map locale to LuckySheet format
-    - Convert sheet order
+def fix_excel_export(excel_buffer, univer_data):
+    # Load the ExcelJS-generated file
+    wb = load_workbook(io.BytesIO(excel_buffer))
     
-    // Sheet conversion
-    - Iterate through sheets
-    - Preserve sheet order
-    - Handle empty sheets
+    # Fix 1: Add defined names
+    for name, ref in univer_data['defined_names'].items():
+        wb.defined_names.append(DefinedName(name, attr_text=ref))
     
-    // Resources
-    - Extract defined names
-    - Extract hyperlinks
-    - Extract images/charts
-    - Extract conditional formatting
-    - Extract data validation
-    - Extract filters
-}
+    # Fix 2: Fix array formulas
+    for ws in wb.worksheets:
+        for row in ws.iter_rows():
+            for cell in row:
+                if cell.formula and 'TRANSPOSE' in cell.formula:
+                    # openpyxl supports array formulas properly
+                    cell.array_formula = cell.formula
+    
+    # Return fixed buffer
+    output = io.BytesIO()
+    wb.save(output)
+    return output.getvalue()
 ```
 
-#### 1.3 LuckySheetData.ts - Sheet Level Conversion
-```typescript
-interface SheetConversionTasks {
-    // Basic properties
-    - name, index, order
-    - tabColor → color
-    - hidden → hide
-    - zoomRatio
-    - showGridlines → showGridLines
-    - defaultColumnWidth → defaultColWidth
-    - defaultRowHeight → defaultRowHeight
-    
-    // Cell data
-    - Convert cellData matrix to array format
-    - Preserve all formulas
-    - Maintain cell references
-    
-    // Config object
-    - mergeData → config.merge
-    - rowData → config.rowlen/rowhidden
-    - columnData → config.columnlen/colhidden
-    - freeze → freezen
-    
-    // Special handling
-    - Array formulas (TRANSPOSE)
-    - Shared formulas
-    - Rich text cells
-}
+**Pros**: 
+- openpyxl has excellent Excel compatibility
+- Supports all modern Excel features
+- Server-side processing (better performance)
+- Python ecosystem for Excel is mature
+
+**Cons**: 
+- Requires Python backend service
+- Additional infrastructure complexity
+
+### Option 3: Replace ExcelJS Entirely
+
+**Alternative Libraries**:
+1. **SheetJS (xlsx)**: More comprehensive but different API
+2. **Direct XML manipulation**: Most control but more work
+3. **Server-side only**: Use openpyxl for both import and export
+
+## Recommended Approach
+
+### Short Term (Immediate)
+1. Keep v0.1.38 with border fixes
+2. Document the limitations clearly
+3. Provide post-processing examples for critical users
+
+### Medium Term (Next Sprint)
+**Implement Backend Post-Processing with openpyxl:**
+
+1. **Architecture**:
+   ```
+   Frontend → Univer → ExcelJS Export → Send to Backend → openpyxl Fix → Return Fixed File
+   ```
+
+2. **Backend Service** (Python/FastAPI):
+   - Endpoint: `POST /api/excel/post-process`
+   - Input: Excel buffer + Univer metadata (defined names, array formulas)
+   - Output: Fixed Excel file
+   - Processing: ~100ms for typical files
+
+3. **Implementation Steps**:
+   - Set up Python microservice with openpyxl
+   - Create post-processing functions for each issue
+   - Add API endpoint in main backend
+   - Update frontend to use backend post-processing when available
+
+### Long Term (Future)
+Consider full migration away from ExcelJS to a more capable library or custom implementation.
+
+## Technical Details for openpyxl Solution
+
+### What openpyxl Can Fix:
+1. ✅ **Defined Names**: Full support via `workbook.defined_names`
+2. ✅ **Array Formulas**: Native support with proper XML generation
+3. ✅ **Dynamic Arrays**: Understands Excel 365 spill ranges
+4. ✅ **No @ Symbol Issues**: Properly handles modern formulas
+5. ✅ **Preserves All Styles**: Better style preservation
+
+### Sample Backend Implementation:
+```python
+# Fix defined names
+for name_obj in univer_metadata.get('definedNames', []):
+    wb.defined_names.append(
+        DefinedName(
+            name=name_obj['name'],
+            attr_text=name_obj['formulaOrRefString']
+        )
+    )
+
+# Fix array formulas
+for sheet_id, sheet_data in univer_metadata.get('sheets', {}).items():
+    ws = wb[sheet_data['name']]
+    for array_formula in sheet_data.get('arrayFormulas', []):
+        cell_ref = array_formula['range']
+        formula = array_formula['formula']
+        ws[cell_ref].value = formula
+        ws[cell_ref].data_type = 'f'
+        ws[cell_ref].array_formula = cell_ref  # Makes it a proper array formula
 ```
 
-#### 1.4 LuckyCell.ts - Cell Level Conversion
-```typescript
-interface CellConversionTasks {
-    // Position
-    - Extract row/column from matrix position
-    
-    // Value handling
-    - Simple values (string, number, boolean)
-    - Formula preservation (f, si fields)
-    - Array formula detection (check for range)
-    
-    // Style conversion
-    - Font properties (bl, it, fs, ff, cl)
-    - Alignment (ht, vt, tb, tr)
-    - Background (bg)
-    - Borders (complex mapping)
-    - Number format (ct)
-    
-    // Special cases
-    - Rich text (p field)
-    - Hyperlinks
-    - Cell images
-    - Comments/notes
-}
-```
+## Decision Point
 
-#### 1.5 LuckyFormula.ts - Formula Specialization
-```typescript
-interface FormulaHandlingTasks {
-    // Array formulas
-    - Detect array formulas from Univer
-    - Restore ref property for TRANSPOSE
-    - Set ft: "array" flag
-    
-    // Shared formulas
-    - Identify shared formula patterns
-    - Restore si and ref properties
-    
-    // Formula cleaning
-    - Ensure proper = prefix
-    - Handle special functions
-    - Preserve cell references
-}
-```
+**Question for Discussion**: Should we implement the Python/openpyxl backend post-processor?
 
-### Phase 2: LuckySheetToXml Generation (Week 2)
-
-#### 2.1 Create XML Generation Infrastructure
-```
-src/
-└── LuckySheetToXml/
-    ├── index.ts                 # Main XML generation interface
-    ├── XmlBase.ts               # Base XML utilities
-    ├── ContentTypesXml.ts       # [Content_Types].xml
-    ├── WorkbookXml.ts           # xl/workbook.xml
-    ├── WorksheetXml.ts          # xl/worksheets/sheet{n}.xml
-    ├── SharedStringsXml.ts      # xl/sharedStrings.xml
-    ├── StylesXml.ts             # xl/styles.xml
-    ├── RelationshipsXml.ts      # xl/_rels/*.rels
-    ├── ThemeXml.ts              # xl/theme/theme1.xml
-    ├── CalcChainXml.ts          # xl/calcChain.xml
-    └── DrawingXml.ts            # xl/drawings/*.xml
-```
-
-#### 2.2 XmlBase.ts - Core XML Utilities
-```typescript
-class XmlBase {
-    // Character escaping (reuse from ReadXml.ts)
-    escapeXmlContent(content: string): string
-    escapeXmlAttribute(attr: string): string
-    escapeSheetName(name: string): string  // Handle ">>>"
-    
-    // Element creation
-    createElement(tag: string, attrs?: {}, content?: string): string
-    createSelfClosingElement(tag: string, attrs?: {}): string
-    
-    // Document creation
-    createXmlDocument(root: string, xmlns: {}): string
-    
-    // Namespace handling
-    addNamespace(tag: string, namespace: string): string
-}
-```
-
-#### 2.3 WorkbookXml.ts - Workbook Structure
-```typescript
-interface WorkbookXmlTasks {
-    // XML structure
-    - Create workbook root with namespaces
-    - Generate fileVersion element
-    - Generate workbookPr element
-    
-    // Sheets
-    - Create sheets element
-    - For each sheet:
-        - name attribute (with escaping!)
-        - sheetId attribute
-        - r:id relationship
-        - state (hidden/visible)
-    
-    // Other elements
-    - definedNames
-    - calcPr
-    - workbookProtection
-}
-```
-
-#### 2.4 WorksheetXml.ts - Sheet Data (Most Complex)
-```typescript
-interface WorksheetXmlTasks {
-    // Document structure
-    - Create worksheet root with namespaces
-    - sheetPr (tab color, etc.)
-    - dimension (data range)
-    - sheetViews (zoom, selection, freeze)
-    - sheetFormatPr (default sizes)
-    - cols (column widths)
-    
-    // Sheet data (critical!)
-    - Create sheetData element
-    - Group cells by row
-    - For each row:
-        - r attribute (row number)
-        - ht, hidden, customHeight
-        - For each cell:
-            - r attribute (A1 notation)
-            - s attribute (style index)
-            - t attribute (type)
-            - Handle formulas:
-                * Regular: <f>formula</f>
-                * Array: <f t="array" ref="A1:C3">formula</f>
-                * Shared: <f t="shared" si="0" ref="A1:A10">formula</f>
-            - Handle values:
-                * Direct: <v>value</v>
-                * Shared string: <v>index</v>
-                * Inline string: <is><t>text</t></is>
-    
-    // Additional elements
-    - mergeCells
-    - conditionalFormatting
-    - dataValidations
-    - hyperlinks
-    - drawing relationships
-}
-```
-
-#### 2.5 StylesXml.ts - Styling Information
-```typescript
-interface StylesXmlTasks {
-    // Style components
-    - numFmts (number formats)
-    - fonts collection
-    - fills collection
-    - borders collection
-    - cellStyleXfs
-    - cellXfs (main styles)
-    - cellStyles
-    - dxfs (conditional formatting styles)
-    
-    // Style indexing
-    - Build style registry
-    - Deduplicate styles
-    - Assign indices
-}
-```
-
-#### 2.6 SharedStringsXml.ts - String Optimization
-```typescript
-interface SharedStringsXmlTasks {
-    // String collection
-    - Collect all unique strings
-    - Build string index map
-    - Generate sst element
-    - For each unique string:
-        - Create si element
-        - Handle rich text (multiple r elements)
-        - Handle plain text (t element)
-    
-    // Update cell references
-    - Replace string values with indices
-    - Set cell type to shared string
-}
-```
-
-### Phase 3: Excel File Assembly (Week 3)
-
-#### 3.1 Create Excel Builder
-```
-src/
-└── LuckySheetToExcel/
-    ├── ExcelBuilder.ts          # Main orchestrator
-    ├── FileStructure.ts         # Excel file structure
-    └── ZipGenerator.ts          # JSZip wrapper
-```
-
-#### 3.2 ExcelBuilder.ts - Main Orchestration
-```typescript
-interface BuilderTasks {
-    // Preparation
-    - Convert Univer to LuckySheet
-    - Initialize XML generators
-    - Prepare file structure
-    
-    // XML Generation
-    - Generate all XML files
-    - Validate XML structure
-    - Handle relationships
-    
-    // File Assembly
-    - Create ZIP structure
-    - Add all files in correct paths
-    - Generate final buffer
-    
-    // Error handling
-    - Validate required files
-    - Check for missing relationships
-    - Ensure valid Excel structure
-}
-```
-
-#### 3.3 FileStructure.ts - Excel ZIP Structure
-```typescript
-interface ExcelStructure {
-    root: {
-        "[Content_Types].xml": string,
-        "_rels/": {
-            ".rels": string
-        },
-        "docProps/": {
-            "app.xml": string,
-            "core.xml": string
-        },
-        "xl/": {
-            "workbook.xml": string,
-            "styles.xml": string,
-            "sharedStrings.xml": string,
-            "_rels/": {
-                "workbook.xml.rels": string
-            },
-            "worksheets/": {
-                "sheet1.xml": string,
-                "sheet2.xml": string,
-                // ... more sheets
-                "_rels/": {
-                    "sheet1.xml.rels": string,
-                    // ... relationships
-                }
-            },
-            "theme/": {
-                "theme1.xml": string
-            },
-            "drawings/": {
-                "drawing1.xml": string,
-                // ... more drawings
-            },
-            "charts/": {
-                "chart1.xml": string,
-                // ... more charts
-            },
-            "media/": {
-                "image1.png": Buffer,
-                // ... more images
-            }
-        }
-    }
-}
-```
-
-### Phase 4: Integration & Testing (Week 4)
-
-#### 4.1 Update Main API
-```typescript
-// main.ts modifications
-interface ApiChanges {
-    // New internal method
-    transformUniverToLuckySheet(snapshot: any): ILuckyFile
-    
-    // New internal method
-    transformLuckySheetToExcel(luckyFile: ILuckyFile): Promise<ArrayBuffer>
-    
-    // Updated public method
-    transformUniverToExcel(params: ExportParams): Promise<void>
-    
-    // Deprecate but keep for compatibility
-    transformUniverToExcelLegacy(params: ExportParams): Promise<void>
-}
-```
-
-#### 4.2 Testing Strategy
-
-##### Unit Tests
-```typescript
-describe('UniverToLuckySheet', () => {
-    test('converts basic cell values')
-    test('preserves formulas')
-    test('handles array formulas (TRANSPOSE)')
-    test('converts styles correctly')
-    test('preserves empty sheets')
-    test('handles special characters in sheet names')
-})
-
-describe('LuckySheetToXml', () => {
-    test('generates valid XML')
-    test('escapes special characters')
-    test('creates proper formula elements')
-    test('handles merged cells')
-    test('generates correct relationships')
-})
-
-describe('ExcelBuilder', () => {
-    test('creates valid ZIP structure')
-    test('includes all required files')
-    test('generates downloadable Excel file')
-})
-```
-
-##### Integration Tests
-```typescript
-describe('Round-trip Testing', () => {
-    test('Import → Export → Import produces same result')
-    test('Complex formulas survive round-trip')
-    test('Styling is preserved')
-    test('Charts and images are maintained')
-    test('Special characters handled correctly')
-})
-```
-
-##### Edge Cases
-```typescript
-describe('Edge Cases', () => {
-    test('Empty workbook')
-    test('Single empty sheet')
-    test('Sheet name with ">>>"')
-    test('10000+ cells performance')
-    test('Complex nested formulas')
-    test('Maximum style combinations')
-})
-```
-
-## Implementation Details
-
-### Critical Success Factors
-
-1. **Character Escaping**
-   - Must handle: `< > & " ' >>>` in all contexts
-   - Sheet names need special handling
-   - Formula content needs different escaping than values
-
-2. **Formula Preservation**
-   - Array formulas: Must preserve `ref` attribute
-   - Shared formulas: Must maintain `si` and cell references
-   - Named ranges: Must resolve correctly
-
-3. **Style Deduplication**
-   - Excel requires styles to be deduplicated
-   - Each unique combination gets an index
-   - Cells reference style by index
-
-4. **Relationship Management**
-   - Every reference needs a relationship
-   - Relationships must have unique IDs
-   - Must maintain parent-child relationships
-
-5. **Empty Sheet Handling**
-   - Even empty sheets need worksheet XML
-   - Must have minimum structure
-   - Default dimensions and properties
-
-### Data Structures
-
-#### Style Registry
-```typescript
-class StyleRegistry {
-    private fonts: Map<string, number> = new Map()
-    private fills: Map<string, number> = new Map()
-    private borders: Map<string, number> = new Map()
-    private cellXfs: Map<string, number> = new Map()
-    
-    registerFont(font: FontStyle): number
-    registerFill(fill: FillStyle): number
-    registerBorder(border: BorderStyle): number
-    getCellStyleIndex(style: CellStyle): number
-}
-```
-
-#### String Registry
-```typescript
-class SharedStringRegistry {
-    private strings: Map<string, number> = new Map()
-    private count: number = 0
-    
-    addString(str: string): number
-    getStrings(): string[]
-    getCount(): number
-    getUniqueCount(): number
-}
-```
-
-#### Relationship Manager
-```typescript
-class RelationshipManager {
-    private relationships: Map<string, Relationship[]> = new Map()
-    private nextId: number = 1
-    
-    addRelationship(parent: string, type: string, target: string): string
-    getRelationships(parent: string): Relationship[]
-    generateRelationshipXml(parent: string): string
-}
-```
-
-### Performance Considerations
-
-1. **Memory Management**
-   - Stream large files if possible
-   - Clear intermediate data after use
-   - Use string builders for XML
-
-2. **Optimization Points**
-   - Style deduplication (major impact)
-   - Shared string optimization
-   - Batch cell processing by row
-
-3. **Benchmarks**
-   - Target: 10,000 cells < 1 second
-   - Target: 100,000 cells < 10 seconds
-   - Memory: < 100MB for typical files
-
-## Migration Plan
-
-### Version 0.1.26 - Foundation
-- Implement UniverToLuckySheet
-- Basic XML generation (workbook, worksheet)
-- Simple cell values and formulas
-
-### Version 0.1.27 - Styles & Formatting
-- Complete StylesXml implementation
-- SharedStrings optimization
-- Merged cells, borders, fills
-
-### Version 0.1.28 - Advanced Features
-- Array formulas (TRANSPOSE)
-- Conditional formatting
-- Data validation
-- Hyperlinks
-
-### Version 0.1.29 - Media & Charts
-- Image export
-- Chart export
-- Drawing relationships
-
-### Version 0.2.0 - Complete Parity
-- All features from import
-- Performance optimizations
-- Deprecate ExcelJS approach
-
-## Risk Mitigation
-
-### Technical Risks
-1. **XML Complexity**
-   - Mitigation: Study Excel XML schemas
-   - Fallback: Validate against Excel specs
-
-2. **Performance Issues**
-   - Mitigation: Profile and optimize hotspots
-   - Fallback: Streaming for large files
-
-3. **Compatibility**
-   - Mitigation: Test with multiple Excel versions
-   - Fallback: Target Excel 2016+ minimum
-
-### Schedule Risks
-1. **Scope Creep**
-   - Mitigation: Strict phase boundaries
-   - Fallback: Ship core features first
-
-2. **Testing Time**
-   - Mitigation: Automated test suite
-   - Fallback: Beta release for testing
-
-## Success Metrics
-
-1. **Feature Parity**
-   - 100% of imported features can be exported
-   - Round-trip test success rate > 99%
-
-2. **Performance**
-   - Export speed within 2x of import speed
-   - Memory usage < current ExcelJS approach
-
-3. **Code Quality**
-   - 80%+ code reuse from import
-   - 90%+ test coverage
-   - Zero critical bugs in production
-
-## Appendix: File Mapping
-
-### Import Process Files (To Study)
-- `src/ToLuckySheet/ReadXml.ts` - XML parsing patterns
-- `src/ToLuckySheet/LuckyFile.ts` - Workbook structure
-- `src/ToLuckySheet/LuckySheet.ts` - Sheet processing
-- `src/ToLuckySheet/LuckyCell.ts` - Cell handling
-- `src/common/constant.ts` - Excel constants
-- `src/common/method.ts` - Utility functions
-
-### Export Process Files (To Create)
-- `src/UniverToLuckySheet/*` - Reverse conversion
-- `src/LuckySheetToXml/*` - XML generation
-- `src/LuckySheetToExcel/*` - File assembly
-
-### Shared Components
-- `src/common/XmlBase.ts` - New shared XML utilities
-- `src/common/constant.ts` - Existing Excel constants
-- `src/HandleZip.ts` - Existing ZIP handling
+**Considerations**:
+1. Do we already have Python backend infrastructure?
+2. Is adding a Python service acceptable for the architecture?
+3. What's the performance requirement for Excel exports?
+4. How critical are these Excel features for users?
 
 ## Next Steps
 
-1. **Review & Approve Plan**
-   - Technical review
-   - Timeline approval
-   - Resource allocation
+1. **If YES to backend post-processing**:
+   - Design API contract
+   - Set up Python service
+   - Implement fixes
+   - Test with various Excel files
 
-2. **Setup Development**
-   - Create folder structure
-   - Setup test framework
-   - Create development branch
+2. **If NO to backend post-processing**:
+   - Document limitations clearly
+   - Provide frontend post-processing utility
+   - Consider replacing ExcelJS in future versions
 
-3. **Begin Phase 1**
-   - Start with UniverToLuckySheet
-   - Focus on data integrity
-   - Build test suite alongside
+## Conclusion
 
----
-
-**Document Version:** 1.0  
-**Last Updated:** 2025-08-08  
-**Author:** Development Team  
-**Status:** DRAFT - Awaiting Approval
+The core import/export functionality works well after v0.1.38 fixes. The remaining issues are due to ExcelJS limitations that can't be fixed within the library itself. Backend post-processing with openpyxl offers a robust solution that would provide 100% Excel compatibility without replacing the entire export infrastructure.
