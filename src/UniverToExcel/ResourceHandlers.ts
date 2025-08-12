@@ -290,10 +290,10 @@ function applyDataValidation(worksheet: Worksheet, validation: any): void {
                 if (validation.formula1) {
                     // Formula reference
                     if(validation.formula1.startsWith('=')){
-                        excelValidation.formulae = [validation.formula1];
+                        excelValidation.formulae = [validation.formula1.substring(1, validation.formula1.length)];
                     }
                     else {
-                        excelValidation.formulae = [`"${validation}"`];
+                        excelValidation.formulae = [`"${validation.formula1}"`];
                     }
                 } else if (validation.list) {
                     // Direct list
@@ -332,11 +332,15 @@ function applyDataValidation(worksheet: Worksheet, validation: any): void {
         }
 
         // Apply to cells in range
-        const cells = worksheet.getCell(range);
-        if (cells) {
-            cells.dataValidation = excelValidation;
-            debug.log('✅ [DataValidation] Applied to range:', range, excelValidation);
+        for (let r = validationRange.startRow; r <= validationRange.endRow; r++) {
+            for (let c = validationRange.startColumn; c <= validationRange.endColumn; c++) {
+                const cell = worksheet.getCell(r + 1, c + 1);
+                if(cell){
+                    cell.dataValidation = excelValidation;
+                }
+            }
         }
+        debug.log('✅ [DataValidation] Applied to range:', range, excelValidation);
     }
 }
 
