@@ -1161,7 +1161,12 @@ export function getMultiFormulaValue(value: string): string[] {
     const start = value.indexOf(`<formula${i}>`);
     const end = value.indexOf(`</formula${i}>`);
     const _value = value.substring(start + startLen, end);
-    retArr.push(escapeCharacter(_value.replace(/&quot;|^\"|\"$/g, "")));
+    if(/^&quot;.*&quot;$/g.test(_value)) {
+        retArr.push(escapeCharacter(_value.replace(/&quot;|^\"|\"$/g, "")));
+    }
+    else{
+        retArr.push('='+_value);
+    }
   }
   return retArr;
 }
