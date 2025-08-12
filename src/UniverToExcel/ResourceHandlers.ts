@@ -287,7 +287,6 @@ function applyDataValidation(worksheet: Worksheet, validation: any): void {
         // Set validation-specific properties
         switch (validation.type) {
             case 'list':
-                debugger
                 if (validation.formula1) {
                     // Formula reference
                     if(validation.formula1.startsWith('=')){
