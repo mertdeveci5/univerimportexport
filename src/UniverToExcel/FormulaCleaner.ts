@@ -59,9 +59,20 @@ export class FormulaCleaner {
     }
 
     /**
-     * Remove @ symbols that ExcelJS incorrectly places
+     * Handle @ symbols intelligently based on formula type
+     * For TRANSPOSE and other dynamic array formulas, @ symbols are REQUIRED in Excel 365
      */
     private static removeIncorrectAtSymbols(formula: string): string {
+        // Check if this is a TRANSPOSE formula - these NEED @ symbols in Excel 365
+        const isTransposeFormula = formula.toUpperCase().includes('TRANSPOSE');
+        
+        if (isTransposeFormula) {
+            // For TRANSPOSE formulas, keep @ symbols - they're required
+            debug.log('[FormulaCleaner] Preserving @ symbols in TRANSPOSE formula');
+            return formula;
+        }
+        
+        // For non-TRANSPOSE formulas, remove @ symbols that ExcelJS incorrectly places
         let cleaned = formula;
         
         // Fix 1: Remove @ from function names (like @TRANSPOSE -> TRANSPOSE)

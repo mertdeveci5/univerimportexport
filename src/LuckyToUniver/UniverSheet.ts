@@ -115,6 +115,9 @@ export class UniverSheet extends UniverSheetBase {
         });
     };
     private handleCellData = (celldata: IluckySheetCelldata[], config: IluckySheetConfig) => {
+        // Track TRANSPOSE formulas to detect duplicates (for fixing import issues)
+        const transposeTracker = new Map<string, {firstRow: number, firstCol: number}>();
+        
         const handleCell = (row: IluckySheetCelldata): ICellData => {
             const { v } = row;
             if (typeof v === 'string' || v === null || v === undefined) {
@@ -151,6 +154,40 @@ export class UniverSheet extends UniverSheetBase {
             
             // Check if this is a TRANSPOSE formula (always treat as array formula)
             const isTransposeFormula = f && /TRANSPOSE\s*\(/i.test(f);
+            
+            // For TRANSPOSE formulas, check if this is a duplicate
+            if (isTransposeFormula) {
+                // Extract the formula content to use as a key
+                const formulaKey = f.replace(/\s+/g, '').toUpperCase();
+                
+                if (transposeTracker.has(formulaKey)) {
+                    // This is a duplicate TRANSPOSE formula - it should be a spill cell
+                    const firstCell = transposeTracker.get(formulaKey)!;
+                    
+                    // Return cell with just the value, no formula (it's a spill cell)
+                    const cell: ICellData = {
+                        s: handleStyle(row, borderConf),
+                        t: cellType,
+                        v: val, // Keep the calculated value
+                    };
+                    
+                    // Handle hyperlinks and other properties as normal
+                    if (hyperlinkInfo) {
+                        const hyperlinkDoc = this.handleHyperlinkDocument(row, hyperlinkInfo);
+                        if (hyperlinkDoc) {
+                            cell.p = hyperlinkDoc;
+                        }
+                    } else {
+                        const pVal = this.handleDocument(row, config);
+                        if (pVal) cell.p = pVal;
+                    }
+                    
+                    return cell;
+                } else {
+                    // First occurrence of this TRANSPOSE formula
+                    transposeTracker.set(formulaKey, {firstRow: row.r, firstCol: row.c});
+                }
+            }
             
             if ((v.ft === 'array' && v.ref && f) || isTransposeFormula) {
                 // Generate a unique ID for this array formula

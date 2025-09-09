@@ -193,7 +193,12 @@ export class Element extends xmloperation {
                 if(attrKey==null || attrValue==null ||attrKey.length==0 || attrValue.length==0){
                     continue;
                 }
-                this.attributeList[attrKey] = attrValue.substr(1, attrValue.length-2);
+                // Unescape the attribute value to restore original characters
+                let unescapedValue = attrValue.substr(1, attrValue.length-2);
+                if (unescapedValue.includes('__GT__')) {
+                    unescapedValue = unescapedValue.replace(/__GT__/g, '>');
+                }
+                this.attributeList[attrKey] = unescapedValue;
             }
         }
     }
