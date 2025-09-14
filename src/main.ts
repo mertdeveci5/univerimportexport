@@ -1,34 +1,3 @@
-// DEBUGGING: Global RegExp interceptor to find heap exhaustion cause
-if (typeof process !== 'undefined') {
-    const origExec = RegExp.prototype.exec;
-    const origMatch = String.prototype.match;
-    const origReplace = String.prototype.replace;
-
-    RegExp.prototype.exec = function(str: any) {
-        if (str && typeof str === 'string' && str.length > 100000) {
-            console.error(`[REGEX TRAP] exec() on ${str.length} chars, pattern: ${this.source.substring(0, 100)}...`);
-            console.trace();
-        }
-        return origExec.call(this, str);
-    };
-
-    (String.prototype as any).match = function(regexp: any) {
-        if (this.length > 100000) {
-            console.error(`[REGEX TRAP] match() on ${this.length} chars, pattern: ${regexp}`);
-            console.trace();
-        }
-        return origMatch.call(this, regexp);
-    };
-
-    (String.prototype as any).replace = function(searchValue: any, replaceValue: any) {
-        if (this.length > 100000 && searchValue instanceof RegExp) {
-            console.error(`[REGEX TRAP] replace() on ${this.length} chars, regex: ${searchValue.source.substring(0, 100)}...`);
-            console.trace();
-        }
-        return origReplace.call(this, searchValue, replaceValue);
-    };
-}
-
 import { LuckyFile } from "./ToLuckySheet/LuckyFile";
 // import {SecurityDoor,Car} from './content';
 
@@ -110,15 +79,6 @@ export class LuckyExcel {
         callback?: (files: IWorkbookData, fs?: string) => void,
         errorHandler?: (err: Error) => void
     ) {
-        // Debug logging removed
-        
-        debug.log('🚀 [PACKAGE] transformExcelToUniver START', {
-            fileName: excelFile.name,
-            fileSize: `${(excelFile.size / 1024).toFixed(2)} KB`,
-            fileType: excelFile.type,
-            timestamp: new Date().toISOString()
-        });
-        
         const startTime = Date.now();
         
         // Return a Promise that resolves when the callback is called
@@ -127,47 +87,13 @@ export class LuckyExcel {
                 // Handle both XLS and XLSX files
                 const processExcelFiles = async (files: IuploadfileList) => {
                     try {
-                        debug.log('📦 [PACKAGE] Processing Excel files...', {
-                            fileCount: Object.keys(files).length,
-                            elapsed: `${Date.now() - startTime}ms`
-                        });
-                        
-                        debug.log('📦 [PACKAGE] Creating LuckyFile...');
                         let luckyFile = new LuckyFile(files, excelFile.name);
-                        
-                        debug.log('📦 [PACKAGE] Parsing LuckyFile...');
                         let luckysheetfile = luckyFile.Parse();
-                        
-                        debug.log('📦 [PACKAGE] Parsing JSON output...');
                         let exportJson = JSON.parse(luckysheetfile);
                         
-                        debug.log('📦 [PACKAGE] Parsed exportJson structure:', {
-                            hasData: !!exportJson?.data,
-                            hasSheets: !!exportJson?.sheets,
-                            dataLength: exportJson?.data?.length || 0,
-                            sheetsLength: exportJson?.sheets?.length || 0,
-                            topLevelKeys: Object.keys(exportJson || {}),
-                            elapsed: `${Date.now() - startTime}ms`
-                        });
-                        
-                        if (exportJson?.data) {
-                            debug.log('📦 [PACKAGE] Sheets in data property:', exportJson.data.map((s: any) => s.name));
-                        }
-                        if (exportJson?.sheets) {
-                            debug.log('📦 [PACKAGE] Sheets in sheets property:', exportJson.sheets.map((s: any) => s.name));
-                        }
-                        
                         if (callback != undefined) {
-                            debug.log('📦 [PACKAGE] Creating UniverWorkBook...');
                             const univerData = new UniverWorkBook(exportJson);
-                            
-                            // Debug logging removed
-                            
-                            debug.log('📦 [PACKAGE] Calling callback with data...');
                             callback(univerData.mode, luckysheetfile);
-                            debug.log('✅ [PACKAGE] transformExcelToUniver COMPLETE', {
-                                totalTime: `${Date.now() - startTime}ms`
-                            });
                         }
                         resolveMain();
                     } catch (err) {
@@ -181,10 +107,8 @@ export class LuckyExcel {
 
                 // Check if it's an XLS file
                 if (HandleXls.isXlsFile(excelFile)) {
-                    debug.log('📁 [PACKAGE] XLS file detected, converting to XLSX...');
                     HandleXls.convertXlsToXlsx(excelFile)
                         .then(files => {
-                            debug.log('📁 [PACKAGE] XLS conversion complete');
                             return processExcelFiles(files);
                         })
                         .catch(err => {
@@ -196,7 +120,6 @@ export class LuckyExcel {
                         });
                 } else {
                     // Handle XLSX file normally
-                    debug.log('📁 [PACKAGE] XLSX file detected, unzipping...');
                     let handleZip: HandleZip = new HandleZip(excelFile);
                     handleZip.unzipFile(
                         (files: IuploadfileList) => {
@@ -259,12 +182,8 @@ export class LuckyExcel {
     }) {
         const { snapshot, fileName = `excel_${(new Date).getTime()}.xlsx`, getBuffer = false, success, error } = params;
         try {
-            debug.log('🚀 [transformUniverToExcel] Starting export with enhanced handler');
-            
             // Use enhanced export for better feature support
             const buffer = await exportUniverToExcel(snapshot);
-            
-            debug.log('✅ [transformUniverToExcel] Export completed, buffer size:', buffer.length);
             if (getBuffer) {
                 success?.(buffer);
             } else {
@@ -288,7 +207,6 @@ export class LuckyExcel {
         const { snapshot, fileName = `csv_${(new Date).getTime()}.csv`, getBuffer = false, success, error, sheetName } = params;
         try {
             const csv = new CSV(snapshot);
-            debug.log(csv);
 
             let contents: string | { [key: string]: string };
             if (sheetName) {
