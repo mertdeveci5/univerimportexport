@@ -92,8 +92,11 @@ export class LuckyExcel {
                         let exportJson = JSON.parse(luckysheetfile);
                         
                         if (callback != undefined) {
+                            console.log('[PACKAGE] About to create UniverWorkBook...');
                             const univerData = new UniverWorkBook(exportJson);
+                            console.log('[PACKAGE] UniverWorkBook created successfully');
                             callback(univerData.mode, luckysheetfile);
+                            console.log('[PACKAGE] Callback invoked successfully');
                         }
                         resolveMain();
                     } catch (err) {
