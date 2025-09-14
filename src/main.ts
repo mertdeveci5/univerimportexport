@@ -1,3 +1,34 @@
+// DEBUGGING: Global RegExp interceptor to find heap exhaustion cause
+if (typeof process !== 'undefined') {
+    const origExec = RegExp.prototype.exec;
+    const origMatch = String.prototype.match;
+    const origReplace = String.prototype.replace;
+
+    RegExp.prototype.exec = function(str: any) {
+        if (str && typeof str === 'string' && str.length > 100000) {
+            console.error(`[REGEX TRAP] exec() on ${str.length} chars, pattern: ${this.source.substring(0, 100)}...`);
+            console.trace();
+        }
+        return origExec.call(this, str);
+    };
+
+    (String.prototype as any).match = function(regexp: any) {
+        if (this.length > 100000) {
+            console.error(`[REGEX TRAP] match() on ${this.length} chars, pattern: ${regexp}`);
+            console.trace();
+        }
+        return origMatch.call(this, regexp);
+    };
+
+    (String.prototype as any).replace = function(searchValue: any, replaceValue: any) {
+        if (this.length > 100000 && searchValue instanceof RegExp) {
+            console.error(`[REGEX TRAP] replace() on ${this.length} chars, regex: ${searchValue.source.substring(0, 100)}...`);
+            console.trace();
+        }
+        return origReplace.call(this, searchValue, replaceValue);
+    };
+}
+
 import { LuckyFile } from "./ToLuckySheet/LuckyFile";
 // import {SecurityDoor,Car} from './content';
 

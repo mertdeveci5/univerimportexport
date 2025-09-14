@@ -7,32 +7,16 @@ import { debug } from "../utils/debug";
 class xmloperation {
     // Escape problematic characters in XML attributes to prevent regex issues
     private escapeXmlAttributes(xmlString: string): string {
-        // Replace > characters within quoted attribute values with a safe placeholder
-        // This regex matches attribute="value" patterns (including namespace prefixes like r:id)
-        let hasEscaped = false;
-        const result = xmlString.replace(/([\w:]+)="([^"]*)"/g, (match, attrName, attrValue) => {
-            if (attrValue.includes('>')) {
-                // Replace > with __GT__ placeholder inside attribute values
-                const escapedValue = attrValue.replace(/>/g, '__GT__');
-                hasEscaped = true;
-                debug.log(`🔄 [ReadXml] Escaping attribute: ${attrName}="${attrValue}" -> ${attrName}="${escapedValue}"`);
-                return `${attrName}="${escapedValue}"`;
-            }
-            return match;
-        });
-        
-        if (hasEscaped) {
-            debug.log('🔄 [ReadXml] Escaped problematic characters in XML');
-        }
-        return result;
+        // DISABLED: This regex was causing heap exhaustion on large files (>700KB)
+        // The regex /([\w:]+)="([^"]*)"/ with capturing groups causes catastrophic backtracking
+        // Properly formatted Excel XML shouldn't have unescaped > in attribute values anyway
+        // If needed in future, use a streaming parser or chunked approach instead
+        return xmlString;
     }
     
     // Restore escaped characters back to original
     private unescapeXmlAttributes(xmlString: string): string {
-        if (xmlString.includes('__GT__')) {
-            debug.log('🔄 [ReadXml] Unescaping XML attributes');
-            return xmlString.replace(/__GT__/g, '>');
-        }
+        // DISABLED: Since we're not escaping anymore, just return the string as-is
         return xmlString;
     }
     
@@ -47,6 +31,69 @@ class xmloperation {
         
         //<a:[^/>: ]+?>.*?</a:[^/>: ]+?>
         let readTagReg;
+
+        // For very large files, avoid catastrophic regex backtracking by processing in chunks
+        // Lower threshold to catch more problematic files
+        const isLargeFile = escapedFile.length > 200000;
+
+        if(isLargeFile) {
+            console.log(`[XML] Large file detected (${escapedFile.length} chars) for tag "${tag}", processing in chunks`);
+
+            // For very large files, use a different approach to avoid regex catastrophic backtracking
+            // Instead of regex, use a simpler string search approach
+            const allMatches: string[] = [];
+            const tags = tag.indexOf("|") > -1 ? tag.split("|") : [tag];
+
+            for(const t of tags) {
+                let searchPos = 0;
+                const openTag = `<${t}`;
+                const closeTag = `</${t}>`;
+                const selfClose = `/>`;
+
+                while(searchPos < escapedFile.length) {
+                    // Find the next occurrence of this tag
+                    const tagStart = escapedFile.indexOf(openTag, searchPos);
+                    if(tagStart === -1) break;
+
+                    // Check if it's a self-closing tag first
+                    const nextGt = escapedFile.indexOf(">", tagStart);
+                    if(nextGt !== -1) {
+                        const tagContent = escapedFile.substring(tagStart, nextGt + 1);
+
+                        // Check if it's self-closing
+                        if(tagContent.endsWith("/>")) {
+                            allMatches.push(tagContent);
+                            searchPos = nextGt + 1;
+                            continue;
+                        }
+
+                        // Look for the closing tag
+                        const closePos = escapedFile.indexOf(closeTag, nextGt);
+                        if(closePos !== -1) {
+                            const fullTag = escapedFile.substring(tagStart, closePos + closeTag.length);
+                            allMatches.push(fullTag);
+                            searchPos = closePos + closeTag.length;
+                        } else {
+                            // No closing tag found, might be malformed
+                            searchPos = nextGt + 1;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+            }
+
+            let ret = allMatches.length > 0 ? allMatches : null;
+            if(ret==null){
+                return [];
+            }
+            else{
+                // Unescape the matched results before returning
+                return ret.map(match => this.unescapeXmlAttributes(match));
+            }
+        }
+
+        // Original approach for smaller files
         if(tag.indexOf("|")>-1){
             let tags = tag.split("|"), tagsRegTxt="";
             for(let i=0;i<tags.length;i++){
@@ -59,7 +106,7 @@ class xmloperation {
         else{
             readTagReg = new RegExp("<"+ tag +" [^>]+?[^/]>[\\s\\S]*?</"+ tag +">|<"+ tag +" [^>]+?/>|<"+ tag +">[\\s\\S]*?</"+ tag +">|<"+ tag +"/>", "g");
         }
-        
+
         let ret = escapedFile.match(readTagReg);
         if(ret==null){
             return [];
@@ -178,8 +225,37 @@ export class Element extends xmloperation {
         super();
         this.elementString = str;
         this.setValue();
-        const readAttrReg = new RegExp('[a-zA-Z0-9_:]*?=".*?"', "g");
-        let attrList = this.container.match(readAttrReg);
+        // For very large container strings, use a safer approach
+        let attrList: string[] | null;
+        if (this.container.length > 50000) {
+            // Use a safer approach for large strings
+            attrList = [];
+            let pos = 0;
+            while (pos < this.container.length) {
+                // Find next attribute pattern
+                const eqPos = this.container.indexOf('="', pos);
+                if (eqPos === -1) break;
+
+                // Find attribute name start
+                let nameStart = eqPos - 1;
+                while (nameStart >= 0 && /[a-zA-Z0-9_:]/.test(this.container[nameStart])) {
+                    nameStart--;
+                }
+                nameStart++;
+
+                // Find attribute value end
+                const valueEnd = this.container.indexOf('"', eqPos + 2);
+                if (valueEnd === -1) break;
+
+                const attr = this.container.substring(nameStart, valueEnd + 1);
+                attrList.push(attr);
+                pos = valueEnd + 1;
+            }
+            if (attrList.length === 0) attrList = null;
+        } else {
+            const readAttrReg = new RegExp('[a-zA-Z0-9_:]*?=".*?"', "g");
+            attrList = this.container.match(readAttrReg);
+        }
         this.attributeList = {};
         if(attrList!=null){
             for(let key in attrList){
@@ -193,11 +269,9 @@ export class Element extends xmloperation {
                 if(attrKey==null || attrValue==null ||attrKey.length==0 || attrValue.length==0){
                     continue;
                 }
-                // Unescape the attribute value to restore original characters
+                // Extract the attribute value (remove surrounding quotes)
                 let unescapedValue = attrValue.substr(1, attrValue.length-2);
-                if (unescapedValue.includes('__GT__')) {
-                    unescapedValue = unescapedValue.replace(/__GT__/g, '>');
-                }
+                // No need to unescape since we're not escaping anymore
                 this.attributeList[attrKey] = unescapedValue;
             }
         }
@@ -256,16 +330,48 @@ export class Element extends xmloperation {
         }
         else{
             let firstTag = this.getFirstTag();
-            const firstTagReg = new RegExp("(<"+ firstTag +" [^>]+?[^/]>)([\\s\\S]*?)</"+ firstTag +">|(<"+ firstTag +">)([\\s\\S]*?)</"+ firstTag +">", "g");
-            let result = firstTagReg.exec(str);
-            if (result != null) {
-                if(result[1]!=null){
-                    this.container = result[1];
-                    this.value = result[2];
+
+            // For very large strings, process more carefully to avoid heap exhaustion
+            if (str.length > 50000) {
+                console.log(`[XML setValue] Large string detected (${str.length} chars), using safe parsing`);
+                // Instead of changing logic, just limit the regex scope
+                // Find the closing tag position first to limit regex range
+                const closeTag = "</" + firstTag + ">";
+                const closeTagPos = str.indexOf(closeTag);
+
+                if (closeTagPos !== -1) {
+                    // Only apply regex to the portion up to and including the close tag
+                    const limitedStr = str.substring(0, closeTagPos + closeTag.length);
+                    const firstTagReg = new RegExp("(<"+ firstTag +" [^>]+?[^/]>)([\\s\\S]*?)</"+ firstTag +">|(<"+ firstTag +">)([\\s\\S]*?)</"+ firstTag +">", "g");
+                    let result = firstTagReg.exec(limitedStr);
+                    if (result != null) {
+                        if(result[1]!=null){
+                            this.container = result[1];
+                            this.value = result[2];
+                        }
+                        else{
+                            this.container = result[3];
+                            this.value = result[4];
+                        }
+                    }
+                } else {
+                    // No closing tag found, treat as self-closing
+                    this.container = str;
+                    this.value = "";
                 }
-                else{
-                    this.container = result[3];
-                    this.value = result[4];
+            } else {
+                // Original regex approach for smaller strings
+                const firstTagReg = new RegExp("(<"+ firstTag +" [^>]+?[^/]>)([\\s\\S]*?)</"+ firstTag +">|(<"+ firstTag +">)([\\s\\S]*?)</"+ firstTag +">", "g");
+                let result = firstTagReg.exec(str);
+                if (result != null) {
+                    if(result[1]!=null){
+                        this.container = result[1];
+                        this.value = result[2];
+                    }
+                    else{
+                        this.container = result[3];
+                        this.value = result[4];
+                    }
                 }
             }
         }

@@ -836,8 +836,8 @@ export class LuckySheet extends LuckySheetBase {
           }
         }
 
-        // match R1C1
-        const addressReg = new RegExp(/^.*!R([\d$])+C([\d$])*$/g)
+        // match R1C1 - use a more efficient pattern
+        const addressReg = /^[^!]*!R([\d$])+C([\d$])*$/
         if (addressReg.test(_address)) {
           _address = getTransR1C1ToSequence(_address);
         }

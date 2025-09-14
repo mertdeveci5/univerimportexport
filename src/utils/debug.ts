@@ -4,18 +4,22 @@
  */
 
 const isDebugEnabled = (): boolean => {
+  // TEMPORARILY ENABLE LOGGING IN ALL ENVIRONMENTS FOR DEBUGGING
+  return true;
+
+  // Original logic (disabled for now):
   // Check if we're in Node.js environment
-  if (typeof process !== 'undefined' && process.env) {
-    return process.env.NODE_ENV === 'development' || process.env.DEBUG === 'true';
-  }
-  
+  // if (typeof process !== 'undefined' && process.env) {
+  //   return process.env.NODE_ENV === 'development' || process.env.DEBUG === 'true';
+  // }
+
   // Check if we're in browser environment
-  if (typeof window !== 'undefined') {
-    return (window as any).__DEBUG__ === true;
-  }
-  
+  // if (typeof window !== 'undefined') {
+  //   return (window as any).__DEBUG__ === true;
+  // }
+
   // Default to disabled in production
-  return false;
+  // return false;
 };
 
 const noop = () => {};
