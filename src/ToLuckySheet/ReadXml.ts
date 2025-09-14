@@ -34,7 +34,7 @@ class xmloperation {
 
         // For very large files, avoid catastrophic regex backtracking by processing in chunks
         // Lower threshold to catch more problematic files
-        const isLargeFile = escapedFile.length > 100000;
+        const isLargeFile = escapedFile.length > 200000;
 
         if(isLargeFile) {
             console.log(`[XML] Large file detected (${escapedFile.length} chars) for tag "${tag}", processing in chunks`);
@@ -50,17 +50,7 @@ class xmloperation {
                 const closeTag = `</${t}>`;
                 const selfClose = `/>`;
 
-                // For extremely large files (>10MB), limit the number of matches to prevent memory issues
-                const maxMatches = escapedFile.length > 10000000 ? 1000 : -1;
-                let matchCount = 0;
-
                 while(searchPos < escapedFile.length) {
-                    // Check if we've hit the match limit for extremely large files
-                    if(maxMatches > 0 && matchCount >= maxMatches) {
-                        console.log(`[XML] Hit match limit (${maxMatches}) for tag "${t}" in large file`);
-                        break;
-                    }
-
                     // Find the next occurrence of this tag
                     const tagStart = escapedFile.indexOf(openTag, searchPos);
                     if(tagStart === -1) break;
@@ -74,25 +64,15 @@ class xmloperation {
                         if(tagContent.endsWith("/>")) {
                             allMatches.push(tagContent);
                             searchPos = nextGt + 1;
-                            matchCount++;
                             continue;
                         }
 
                         // Look for the closing tag
                         const closePos = escapedFile.indexOf(closeTag, nextGt);
                         if(closePos !== -1) {
-                            // For extremely large individual tags (>1MB), skip them to avoid memory issues
-                            const tagLength = closePos + closeTag.length - tagStart;
-                            if(tagLength > 1000000) {
-                                console.log(`[XML] Skipping extremely large tag (${tagLength} chars) for "${t}"`);
-                                searchPos = closePos + closeTag.length;
-                                continue;
-                            }
-
                             const fullTag = escapedFile.substring(tagStart, closePos + closeTag.length);
                             allMatches.push(fullTag);
                             searchPos = closePos + closeTag.length;
-                            matchCount++;
                         } else {
                             // No closing tag found, might be malformed
                             searchPos = nextGt + 1;
