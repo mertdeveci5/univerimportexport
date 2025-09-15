@@ -344,8 +344,8 @@ function applyCellStyle(target: any, cell: any, styles: any): void {
             color: style.cl ? convertUniverColorToExcel(style.cl) : undefined,
             bold: fromBooleanNumber(style.bl),
             italic: fromBooleanNumber(style.it),
-            underline: style.ul ? true : undefined,
-            strike: style.st ? true : undefined
+            underline: style.ul?.s ? true : undefined,
+            strike: style.st?.s ? true : undefined
         };
     }
     

@@ -95,7 +95,7 @@ export const handleStyle = (
         1: HorizontalAlign.LEFT,
         2: HorizontalAlign.RIGHT,
     };
-    return {
+    return removeEmptyAttr({
         // bbl: , // bottomBorerLine
         bd: border, // border
         bg: v.bg !== undefined ? { rgb: v.bg, th: ThemeColorType.DARK1 } : undefined, // background
@@ -130,5 +130,5 @@ export const handleStyle = (
                 : undefined, // underline
         // va: , // (Subscript 下标 /Superscript上标 Text)
         vt: v.vt !== undefined ? VerticalAlignMap[v.vt] : undefined, // verticalAlignment
-    };
+    });
 };
