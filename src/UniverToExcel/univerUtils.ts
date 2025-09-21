@@ -128,8 +128,8 @@ export function convertUniverDocToExcelRichText(doc: any): any {
             if (ts.cl) font.color = convertUniverColorToExcel(ts.cl); // Color
             if (ts.bl === 1) font.bold = true;   // Bold
             if (ts.it === 1) font.italic = true; // Italic
-            if (ts.ul) font.underline = true;    // Underline
-            if (ts.st) font.strike = true;       // Strikethrough
+            if (ts.ul?.s) font.underline = true;    // Underline
+            if (ts.st?.s) font.strike = true;       // Strikethrough
             
             // Superscript/subscript
             if (ts.va === 2) font.vertAlign = 'subscript';
