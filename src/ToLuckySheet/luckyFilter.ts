@@ -2,7 +2,7 @@
 * @description: 返回的filter属性是univer格式
 * @author: Created by zwight on 2024-09-23 17:50:01
 */
-import { BooleanNumber } from "@univerjs/core";
+import { BooleanNumber } from "../common/univerEnums";
 import { str2num } from "../common/method";
 import { ReadXml } from "./ReadXml";
 import { handleRanges, IRange } from "./style";

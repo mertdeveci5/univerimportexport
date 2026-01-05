@@ -8,21 +8,15 @@ importers:
 
   .:
     dependencies:
-      '@mertdeveci55/univer-import-export':
-        specifier: ^0.1.24
-        version: 0.1.24(@grpc/grpc-js@1.13.4)(@wendellhu/redi@0.17.1)(rxjs@7.8.2)
       '@progress/jszip-esm':
         specifier: ^1.0.4
         version: 1.0.4
       '@univerjs/core':
-        specifier: ^0.6.10
+        specifier: '>=0.6.0'
         version: 0.6.10(@grpc/grpc-js@1.13.4)(@wendellhu/redi@0.17.1)(rxjs@7.8.2)
       '@zwight/exceljs':
         specifier: 4.4.2
         version: 4.4.2
-      '@zwight/luckyexcel':
-        specifier: ^1.1.6
-        version: 1.1.6(@grpc/grpc-js@1.13.4)(@wendellhu/redi@0.17.1)(rxjs@7.8.2)
       dayjs:
         specifier: ^1.11.13
         version: 1.11.13
@@ -32,9 +26,6 @@ importers:
       papaparse:
         specifier: ^5.5.3
         version: 5.5.3
-      xlsx:
-        specifier: ^0.18.5
-        version: 0.18.5
       xml2js:
         specifier: ^0.6.2
         version: 0.6.2
@@ -138,6 +129,9 @@ importers:
       watchify:
         specifier: ^3.11.1
         version: 3.11.1
+      xlsx:
+        specifier: ^0.18.5
+        version: 0.18.5
 
 packages:
 
@@ -790,9 +784,6 @@ packages:
     resolution: {integrity: sha512-ajBvlKpWucBB17FuQYUShqpqy8GRgYEpJW0vWJbUu1CV9lWyrDCapy0lScU8T8Z6qn49sSwJB3+M+evYIdGg+A==}
     engines: {node: '>= 0.4'}
 
-  '@mertdeveci55/univer-import-export@0.1.24':
-    resolution: {integrity: sha512-iTifwbSNxG8iiRe83B4EfOiVmWNufHVCJrVbzhu3BqLM/V5E5aEyUs8KMqQEAf4Enw4Au0TRqgobzKPJlQNx7Q==}
-
   '@nodelib/fs.scandir@2.1.5':
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
     engines: {node: '>= 8'}
@@ -990,9 +981,6 @@ packages:
   '@zwight/exceljs@4.4.2':
     resolution: {integrity: sha512-WA+u2zRE9Mf1rt3UiQesERv9bgv6DSjLjL9AEMPZgBgTRDOjS09Vi1MVzzhuehsaSaKaScgdK+MSInfOgoxxpg==}
     engines: {node: '>=8.3.0'}
-
-  '@zwight/luckyexcel@1.1.6':
-    resolution: {integrity: sha512-SPU16JL9WkfIqLJto7PTBjC2mzmswnibnhAJKU5Zih1ioLSfHQnGSNUA57g29v0kGD1RBL7uh1gHNw1tyiz+Dw==}
 
   JSONStream@1.3.5:
     resolution: {integrity: sha512-E+iruNOY8VV9s4JEbe1aNEm6MiszPRr/UfcHMz0TQh1BXSxHK+ASV1R6W4HpjBhSeS+54PIsAMCBmwD06LLsqQ==}
@@ -6280,22 +6268,6 @@ snapshots:
     dependencies:
       call-bind: 1.0.8
 
-  '@mertdeveci55/univer-import-export@0.1.24(@grpc/grpc-js@1.13.4)(@wendellhu/redi@0.17.1)(rxjs@7.8.2)':
-    dependencies:
-      '@progress/jszip-esm': 1.0.4
-      '@univerjs/core': 0.6.10(@grpc/grpc-js@1.13.4)(@wendellhu/redi@0.17.1)(rxjs@7.8.2)
-      '@zwight/exceljs': 4.4.2
-      '@zwight/luckyexcel': 1.1.6(@grpc/grpc-js@1.13.4)(@wendellhu/redi@0.17.1)(rxjs@7.8.2)
-      dayjs: 1.11.13
-      nanoid: 3.3.11
-      papaparse: 5.5.3
-      xlsx: 0.18.5
-      xml2js: 0.6.2
-    transitivePeerDependencies:
-      - '@grpc/grpc-js'
-      - '@wendellhu/redi'
-      - rxjs
-
   '@nodelib/fs.scandir@2.1.5':
     dependencies:
       '@nodelib/fs.stat': 2.0.5
@@ -6527,20 +6499,6 @@ snapshots:
       tmp: 0.2.4
       unzipper: 0.10.14
       uuid: 8.3.2
-
-  '@zwight/luckyexcel@1.1.6(@grpc/grpc-js@1.13.4)(@wendellhu/redi@0.17.1)(rxjs@7.8.2)':
-    dependencies:
-      '@progress/jszip-esm': 1.0.4
-      '@univerjs/core': 0.6.10(@grpc/grpc-js@1.13.4)(@wendellhu/redi@0.17.1)(rxjs@7.8.2)
-      '@zwight/exceljs': 4.4.2
-      dayjs: 1.11.13
-      nanoid: 3.3.11
-      papaparse: 5.5.3
-      xml2js: 0.6.2
-    transitivePeerDependencies:
-      - '@grpc/grpc-js'
-      - '@wendellhu/redi'
-      - rxjs
 
   JSONStream@1.3.5:
     dependencies:

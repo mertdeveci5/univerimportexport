@@ -8,7 +8,7 @@
  * from the import process but in reverse.
  */
 
-import { IWorkbookData } from '@univerjs/core';
+import type { IWorkbookData } from '@univerjs/core';
 import { ILuckyFile } from '../ToLuckySheet/ILuck';
 // import { UniverToLuckyWorkBook } from './LuckyWorkBook';
 import { debug } from '../utils/debug';
