@@ -13,7 +13,7 @@ import exceljs from "@zwight/exceljs";
 import { CSV } from "./UniverToCsv/CSV";
 import { isObject } from "./common/method";
 import { UniverWorkBook } from "./LuckyToUniver/UniverWorkBook";
-import { IWorkbookData } from "@univerjs/core";
+import type { IWorkbookData } from "@univerjs/core";
 import { formatSheetData, getDataByFile } from "./common/utils";
 import { UniverCsvWorkBook } from "./LuckyToUniver/UniverCsvWorkBook";
 export class LuckyExcel {

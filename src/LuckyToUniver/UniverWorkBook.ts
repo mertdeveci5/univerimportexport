@@ -1,10 +1,10 @@
-import {
+import type {
     IStyleData,
     IWorkbookData,
     IWorksheetData,
     Nullable,
 } from '@univerjs/core';
-import { IResources } from '@univerjs/core/lib/types/services/resource-manager/type';
+import type { IResources } from '@univerjs/core/lib/types/services/resource-manager/type';
 import { DrawingTypeEnum, PresetGeometryType, LocaleType } from '../common/univerEnums';
 import { debug } from '../utils/debug';
 import { HyperLink, UniverSheet } from './UniverSheet';
