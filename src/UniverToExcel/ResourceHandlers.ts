@@ -245,7 +245,7 @@ export function exportDataValidation(worksheet: Worksheet, sheetId: string, reso
         debug.log('✓ [DataValidation] No data validation for sheet:', sheetId);
         return;
     }
-    
+
     const sheetDV = dvData[sheetId];
     debug.log('✓ [DataValidation] Processing validations:', sheetDV);
     
@@ -265,66 +265,81 @@ export function exportDataValidation(worksheet: Worksheet, sheetId: string, reso
  */
 function applyDataValidation(worksheet: Worksheet, validation: any): void {
     if (!validation || !validation.ranges) return;
-    
-    const range = convertUniverRangeToExcel(validation.ranges);
-    if (!range) return;
-    
-    const excelValidation: any = {
-        type: mapValidationType(validation.type),
-        showErrorMessage: validation.showErrorMessage !== false,
-        showInputMessage: validation.showInputMessage !== false,
-        error: validation.errorMessage || 'Invalid value',
-        errorTitle: validation.errorTitle || 'Error',
-        prompt: validation.inputMessage || '',
-        promptTitle: validation.inputTitle || ''
-    };
-    
-    // Set validation-specific properties
-    switch (validation.type) {
-        case 'list':
-            if (validation.formula1) {
-                // Formula reference
-                excelValidation.formulae = [validation.formula1];
-            } else if (validation.list) {
-                // Direct list
-                excelValidation.formulae = [`"${validation.list.join(',')}"`];
+
+    let validationRanges = validation.ranges;
+    if(!Array.isArray(validationRanges)) { validationRanges = [validationRanges]; }
+
+    for (const validationRange of validationRanges) {
+
+        const range = convertUniverRangeToExcel(validationRange);
+        if (!range) continue;
+
+        const excelValidation: any = {
+            type: mapValidationType(validation.type),
+            showErrorMessage: validation.showErrorMessage !== false,
+            showInputMessage: validation.showInputMessage !== false,
+            error: validation.errorMessage || 'Invalid value',
+            errorTitle: validation.errorTitle || 'Error',
+            prompt: validation.inputMessage || '',
+            promptTitle: validation.inputTitle || ''
+        };
+
+        // Set validation-specific properties
+        switch (validation.type) {
+            case 'list':
+                if (validation.formula1) {
+                    // Formula reference
+                    if(validation.formula1.startsWith('=')){
+                        excelValidation.formulae = [validation.formula1.substring(1, validation.formula1.length)];
+                    }
+                    else {
+                        excelValidation.formulae = [`"${validation.formula1}"`];
+                    }
+                } else if (validation.list) {
+                    // Direct list
+                    excelValidation.formulae = [`"${validation.list.join(',')}"`];
+                }
+                excelValidation.allowBlank = validation.allowBlank !== false;
+                break;
+
+            case 'whole':
+            case 'decimal':
+                excelValidation.operator = validation.operator || 'between';
+                excelValidation.formulae = [];
+                if (validation.formula1) excelValidation.formulae.push(validation.formula1);
+                if (validation.formula2) excelValidation.formulae.push(validation.formula2);
+                excelValidation.allowBlank = validation.allowBlank !== false;
+                break;
+
+            case 'date':
+            case 'time':
+                excelValidation.operator = validation.operator || 'between';
+                excelValidation.formulae = [];
+                if (validation.formula1) excelValidation.formulae.push(convertDateFormula(validation.formula1));
+                if (validation.formula2) excelValidation.formulae.push(convertDateFormula(validation.formula2));
+                break;
+
+            case 'textLength':
+                excelValidation.operator = validation.operator || 'between';
+                excelValidation.formulae = [];
+                if (validation.formula1) excelValidation.formulae.push(validation.formula1);
+                if (validation.formula2) excelValidation.formulae.push(validation.formula2);
+                break;
+
+            case 'custom':
+                excelValidation.formulae = validation.formula1 ? [validation.formula1] : [];
+                break;
+        }
+
+        // Apply to cells in range
+        for (let r = validationRange.startRow; r <= validationRange.endRow; r++) {
+            for (let c = validationRange.startColumn; c <= validationRange.endColumn; c++) {
+                const cell = worksheet.getCell(r + 1, c + 1);
+                if(cell){
+                    cell.dataValidation = excelValidation;
+                }
             }
-            excelValidation.allowBlank = validation.allowBlank !== false;
-            break;
-            
-        case 'whole':
-        case 'decimal':
-            excelValidation.operator = validation.operator || 'between';
-            excelValidation.formulae = [];
-            if (validation.formula1) excelValidation.formulae.push(validation.formula1);
-            if (validation.formula2) excelValidation.formulae.push(validation.formula2);
-            excelValidation.allowBlank = validation.allowBlank !== false;
-            break;
-            
-        case 'date':
-        case 'time':
-            excelValidation.operator = validation.operator || 'between';
-            excelValidation.formulae = [];
-            if (validation.formula1) excelValidation.formulae.push(convertDateFormula(validation.formula1));
-            if (validation.formula2) excelValidation.formulae.push(convertDateFormula(validation.formula2));
-            break;
-            
-        case 'textLength':
-            excelValidation.operator = validation.operator || 'between';
-            excelValidation.formulae = [];
-            if (validation.formula1) excelValidation.formulae.push(validation.formula1);
-            if (validation.formula2) excelValidation.formulae.push(validation.formula2);
-            break;
-            
-        case 'custom':
-            excelValidation.formulae = validation.formula1 ? [validation.formula1] : [];
-            break;
-    }
-    
-    // Apply to cells in range
-    const cells = worksheet.getCell(range);
-    if (cells) {
-        cells.dataValidation = excelValidation;
+        }
         debug.log('✅ [DataValidation] Applied to range:', range, excelValidation);
     }
 }
