@@ -451,7 +451,7 @@ export function getColor(color:Element, styles:IStyleCollections , type:string="
         else if(themeNum==3){
             themeNum = 2;
         }
-        let clrSchemeElement = clrScheme[themeNum];
+        let clrSchemeElement = clrScheme?.[themeNum];
         if(clrSchemeElement!=null){
             let clrs = clrSchemeElement.getInnerElements("a:sysClr|a:srgbClr");
             if(clrs!=null){
